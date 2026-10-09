@@ -23,7 +23,11 @@ struct ContentView: View {
                 .accessibilityElement(children: .combine)
             }
             .withoutSharedBackground()
-            // 右侧：macOS 上 .primaryAction 会排在左侧标题旁边，默认位置（automatic）才在最右侧。
+            // macOS 26 的工具栏不会自动把后面的项推到右侧，需要一个可伸缩的间隔，让标题和右侧按钮两端对齐。
+            if #available(macOS 26.0, *) {
+                ToolbarSpacer(.flexible)
+            }
+            // 右侧：隐私与安全、设备状态。
             ToolbarItemGroup(placement: .automatic) {
                 Button { store.infoSheet = .privacy } label: {
                     Label("隐私与安全", systemImage: "hand.raised")

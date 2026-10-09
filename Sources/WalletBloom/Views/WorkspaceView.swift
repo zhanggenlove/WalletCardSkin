@@ -18,16 +18,19 @@ struct WorkspaceView: View {
                 }
                 .padding(.horizontal, 32)
                 .padding(.top, 4)
-                // 给悬浮操作栏留出空间，最后一行皮肤不会被遮住。
-                .padding(.bottom, 96)
+                // 给悬浮操作栏（约 56pt 高，距底部 14pt）留出空间，页面最底部的内容不会被遮住。
+                .padding(.bottom, 100)
             }
         }
         .overlay(alignment: .bottom) {
-            VStack(spacing: 10) {
-                StatusCapsule(store: store)
-                ActionDeck(store: store)
-            }
-            .padding(.bottom, 14)
+            ActionDeck(store: store)
+                // 状态提示浮在操作栏上方，不参与布局，避免撑高操作栏区域、遮住页面内容。
+                .overlay(alignment: .top) {
+                    StatusCapsule(store: store)
+                        .fixedSize()
+                        .alignmentGuide(.top) { $0[.bottom] + 10 }
+                }
+                .padding(.bottom, 14)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { FooterBar() }
         .fileImporter(isPresented: $store.isImporterPresented, allowedContentTypes: [.png, .jpeg, .heic, .tiff]) { result in
