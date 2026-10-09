@@ -180,6 +180,11 @@ private struct CardCarousel: View {
                             .modifier(StackPlacement(offset: index - store.selectedCardIndex, dragOffset: dragOffset))
                             .onTapGesture { store.selectCard(card.id) }
                             .contextMenu { menu(for: card) }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(card.title)
+                            .accessibilityValue(card.id == store.selectedCardID ? "当前卡片" : "")
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityHidden(abs(index - store.selectedCardIndex) > 2)
                             .help("右键可重命名卡片，或移除误识别的卡片")
                     }
                 }
@@ -235,6 +240,7 @@ private struct CardCarousel: View {
         .keyboardShortcut(key, modifiers: [])
         .disabled(store.cards.count < 2)
         .help(help)
+        .accessibilityLabel(help)
     }
 }
 
@@ -413,7 +419,10 @@ private struct SkinTile: View {
         .offset(y: isHovering ? -2 : 0)
         .animation(.easeOut(duration: 0.15), value: isHovering)
         .onHover { isHovering = $0 }
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(skin.subtitle.isEmpty ? skin.name : "\(skin.name)，\(skin.subtitle)")
+        .accessibilityValue([isSelected ? "正在预览" : nil, isApplied ? "已应用到当前卡片" : nil, isFavorite ? "已收藏" : nil].compactMap { $0 }.joined(separator: "，"))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
