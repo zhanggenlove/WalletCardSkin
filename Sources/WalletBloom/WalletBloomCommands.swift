@@ -57,9 +57,8 @@ struct WalletBloomCommands: Commands {
             Button("免责声明") { store.infoSheet = .disclaimer }
                 .disabled(!isInteractive)
             Divider()
-            Button("联系技术支持…") {
-                if let url = SupportContact.mailURL(subject: "\(AppInfo.displayName) 反馈", body: "") { NSWorkspace.shared.open(url) }
-            }
+            Button("在 GitHub 上反馈…") { NSWorkspace.shared.open(SupportContact.issuesURL) }
+            Button("项目主页…") { NSWorkspace.shared.open(SupportContact.repoURL) }
         }
     }
 

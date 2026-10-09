@@ -59,15 +59,16 @@ enum WalletError: LocalizedError {
     }
 }
 
-// TODO: 占位信息，上线前替换为真实的技术支持渠道。
+/// 技术支持走 GitHub Issues（开源项目）。
 enum SupportContact {
-    static let email = "support@example.com"
+    static let repoURL = URL(string: "https://github.com/zhanggenlove/WalletCardSkin")!
+    static let issuesURL = URL(string: "https://github.com/zhanggenlove/WalletCardSkin/issues")!
+    static let displayText = "github.com/zhanggenlove/WalletCardSkin/issues"
 
-    static func mailURL(subject: String, body: String) -> URL? {
-        var components = URLComponents()
-        components.scheme = "mailto"
-        components.path = email
-        components.queryItems = [URLQueryItem(name: "subject", value: subject), URLQueryItem(name: "body", value: body)]
-        return components.url
+    /// 预填标题和内容的新建 Issue 链接。
+    static func newIssueURL(title: String, body: String) -> URL {
+        var components = URLComponents(url: issuesURL.appendingPathComponent("new"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "title", value: title), URLQueryItem(name: "body", value: body)]
+        return components.url ?? issuesURL
     }
 }

@@ -22,7 +22,7 @@
 | 主界面 v3 | 按 `stitch_macos_app_redesign/` 重做：卡面展台、5 列皮肤网格 + 「制作专属卡面」、隐私提示条、悬浮操作栏、页脚 | 设计稿中的假银行信息（行名、芯片、卡号、VISA）和「AI 绘图」没有实现：前者违背“不使用银行标识、预览与实际一致”，后者没有对应功能；字体沿用系统字体 |
 | 皮肤来源 | 只保留内置示例（`Resources/BuiltInSkins/` 中的图片 + 渐变）和用户导入；移除搜索、分类、收藏和服务器皮肤库 | 产品方向是让用户使用自己的图片；服务器皮肤库的实现在提交 668e59b 中，需要时可以找回 |
 | 脱离 Python 环境 | 内嵌 python-build-standalone（3.12，arm64 + x86_64）到 `Contents/Resources/python-<arch>`，由 `scripts/fetch_python.sh` 下载、`package_app.sh` 嵌入并裁剪 | 没装 python3 的 Mac 也能用；保留 AirCard 验证过的后端代码，风险最低。放 Resources 而非 Frameworks 是因为 Python 的 include/tcl 子目录会让 codesign 误判为 bundle |
-| 技术支持 | `SupportContact.email = support@example.com` | 占位，上线前替换 |
+| 技术支持 | GitHub Issues（`SupportContact`） | 开源项目，反馈统一走 issues |
 
 ## 已修复的问题
 

@@ -96,7 +96,7 @@ struct NoCardsView: View {
 
             HStack(spacing: 4) {
                 Text("钱包里已有卡片却仍无法识别？")
-                Button("联系技术支持") { openSupportMail() }
+                Button("反馈问题") { openSupport() }
                     .buttonStyle(.link)
             }
             .font(.callout)
@@ -105,9 +105,9 @@ struct NoCardsView: View {
         }
     }
 
-    private func openSupportMail() {
-        let body = "设备：\(store.device.map { "\($0.name) \($0.model) \($0.systemVersion)" } ?? "未连接")\n问题：扫描不到钱包中的卡片"
-        if let url = SupportContact.mailURL(subject: "\(AppInfo.displayName) 无法识别卡片", body: body) { openURL(url) }
+    private func openSupport() {
+        let body = "设备：\(store.device.map { "\($0.name) \($0.model) \($0.systemVersion)" } ?? "未连接")\n问题：扫描不到钱包中的卡片\n\n（可附上复现步骤）"
+        openURL(SupportContact.newIssueURL(title: "无法识别卡片", body: body))
     }
 }
 
@@ -125,7 +125,7 @@ struct ScanFailedView: View {
                     .symbolRenderingMode(.multicolor)
             }
         } description: {
-            Text("无法读取钱包卡片，可能是设备兼容性或系统版本问题。请尝试重新连接设备；若问题持续，请联系技术支持。")
+            Text("无法读取钱包卡片，可能是设备兼容性或系统版本问题。请尝试重新连接设备；若问题持续，欢迎到 GitHub 反馈。")
         } actions: {
             Text(message)
                 .font(.system(.callout, design: .monospaced))
@@ -141,20 +141,19 @@ struct ScanFailedView: View {
                 Button("重试") { Task { await store.retry() } }
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
-                Button("联系技术支持") { openSupportMail() }
+                Button("反馈问题") { openSupport() }
             }
             .controlSize(.large)
             .padding(.top, 4)
 
-            Text("技术支持：\(SupportContact.email)")
+            Link("在 GitHub 上反馈：\(SupportContact.displayText)", destination: SupportContact.issuesURL)
                 .font(.callout)
                 .foregroundStyle(.tertiary)
-                .textSelection(.enabled)
         }
     }
 
-    private func openSupportMail() {
+    private func openSupport() {
         let body = "设备：\(store.device.map { "\($0.name) \($0.model) \($0.systemVersion)" } ?? "未连接")\n错误信息：\(message)"
-        if let url = SupportContact.mailURL(subject: "\(AppInfo.displayName) 扫描故障", body: body) { openURL(url) }
+        openURL(SupportContact.newIssueURL(title: "扫描故障", body: body))
     }
 }
