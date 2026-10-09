@@ -292,3 +292,16 @@ final class RemoteSkinCatalogTests: XCTestCase {
         XCTAssertEqual(skins.map(\.id), Skin.placeholders.map(\.id))
     }
 }
+
+final class SystemCompatibilityTests: XCTestCase {
+    func testVersionRanges() {
+        XCTAssertEqual(SystemCompatibility.check("17.5.1"), .unsupported("17.5.1"))
+        XCTAssertEqual(SystemCompatibility.check("18.0"), .supported)
+        XCTAssertEqual(SystemCompatibility.check("27.0"), .supported)
+        XCTAssertEqual(SystemCompatibility.check("28.1"), .untested("28.1"))
+        XCTAssertEqual(SystemCompatibility.check("iOS 26.2"), .supported)
+        XCTAssertEqual(SystemCompatibility.check("Unknown"), .unknown)
+        XCTAssertTrue(SystemCompatibility.check("16.7").isBlocking)
+        XCTAssertFalse(SystemCompatibility.check("28.0").isBlocking)
+    }
+}

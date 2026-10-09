@@ -78,6 +78,6 @@ private struct ConnectionBadge: View {
         }
         .font(.callout)
         .padding(.horizontal, 8)
-        .help(device.map { "\($0.model) · \($0.systemVersion)" } ?? "请使用数据线连接 iPhone")
+        .help(device.map { "\($0.model) · iOS \($0.systemVersion)" + (SystemCompatibility.check($0.systemVersion).message.map { "\n\($0)" } ?? "") } ?? "请使用数据线连接 iPhone")
     }
 }

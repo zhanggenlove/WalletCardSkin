@@ -34,7 +34,7 @@ struct OnboardingView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
-                .disabled(!isConnected)
+                .disabled(!isConnected || store.compatibility.isBlocking)
                 .padding(.top, 28)
 
                 connectionHint
@@ -61,7 +61,10 @@ struct OnboardingView: View {
 
     @ViewBuilder
     private var connectionHint: some View {
-        if let device = store.device {
+        if store.device != nil, let message = store.compatibility.message {
+            Label(message, systemImage: store.compatibility.isBlocking ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(store.compatibility.isBlocking ? .red : .orange)
+        } else if let device = store.device {
             Label("已连接 \(device.name)", systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green)
         } else {

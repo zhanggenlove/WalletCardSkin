@@ -453,7 +453,12 @@ private struct BottomBar: View {
 
     @ViewBuilder
     private var status: some View {
-        if let notice = store.notice {
+        if let message = store.compatibility.message {
+            Label(message, systemImage: store.compatibility.isBlocking ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                .font(.callout)
+                .foregroundStyle(store.compatibility.isBlocking ? .red : .orange)
+                .lineLimit(1)
+        } else if let notice = store.notice {
             Text(notice)
                 .font(.callout)
                 .foregroundStyle(.secondary)

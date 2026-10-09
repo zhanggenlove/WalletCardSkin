@@ -107,10 +107,12 @@ final class WalletBloomStore: ObservableObject {
 
     var libraryDirectory: URL { libraryStore.directory }
 
-    var canApply: Bool { phase == .ready && device != nil && selectedCard != nil && selectedSkin != nil && !coordinator.isRunning }
+    var compatibility: SystemCompatibility { device.map { SystemCompatibility.check($0.systemVersion) } ?? .unknown }
+
+    var canApply: Bool { phase == .ready && device != nil && !compatibility.isBlocking && selectedCard != nil && selectedSkin != nil && !coordinator.isRunning }
     var canEditCards: Bool { phase == .ready && !coordinator.isRunning }
     var canScan: Bool {
-        guard isToolchainAvailable, device != nil, scanTask == nil, !coordinator.isRunning else { return false }
+        guard isToolchainAvailable, device != nil, !compatibility.isBlocking, scanTask == nil, !coordinator.isRunning else { return false }
         return phase != .launching && phase != .scanning
     }
 
@@ -158,7 +160,7 @@ final class WalletBloomStore: ObservableObject {
     // MARK: - Scanning
 
     func startScan() {
-        guard scanTask == nil, !coordinator.isRunning else { return }
+        guard scanTask == nil, !coordinator.isRunning, !compatibility.isBlocking else { return }
         scanTask = Task {
             await performScan()
             scanTask = nil
