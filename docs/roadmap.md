@@ -27,7 +27,7 @@ Sparkle 2 已接入，菜单为「WalletBloom → 检查更新…」。在配置
 ## 发布前必须完成
 
 - **开发者证书签名与公证**：现在是临时签名（ad-hoc），其他用户下载后会被 Gatekeeper 拦截。Sparkle 更新也要求签名一致。
-- **去掉对系统 python3 的依赖**：刷入时调用 `/usr/bin/env python3`，没装命令行工具的 Mac 会弹出安装提示，导致刷入失败。后端只用到 Python 标准库，可以把 Python 运行时打包进 App，或者用 Swift 重写后端。
+- ~~去掉对系统 python3 的依赖~~：已采用方案 A，把独立 Python 运行时（python-build-standalone，arm64 + x86_64）嵌入 `Contents/Resources/python-<arch>`，运行时按硬件架构选择，缺失时回退系统 python3。`sips` 是系统自带工具，无需处理。
 - **免责声明请专业人士审阅**：`DisclaimerView` 中的条款是产品层面的初稿。
 
 ## 功能

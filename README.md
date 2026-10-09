@@ -23,7 +23,7 @@ Run the tests with `swift test`.
 
 ## Package a real-device app
 
-Build AirCard's helper binaries first, run `swift package resolve` once to fetch Sparkle, then run `scripts/package_app.sh`. The script embeds `Sparkle.framework` and the app icon. The script expects the source at `/Users/zhanggen/Downloads/AirCard-main` by default; set `AIR_CARD_ROOT` to override it. If the helper binaries are built elsewhere, set `AIR_CARD_BIN_ROOT`. It refuses to package when `device_helper` or `airtraffic_host` is missing, so an app without device support is never produced.
+Build AirCard's helper binaries first, run `swift package resolve` once to fetch Sparkle, then run `scripts/package_app.sh`. The script embeds `Sparkle.framework` and the app icon, plus a standalone Python runtime (downloaded by `scripts/fetch_python.sh` into the gitignored `build/`), so the app needs no system `python3`. The script expects the source at `/Users/zhanggen/Downloads/AirCard-main` by default; set `AIR_CARD_ROOT` to override it. If the helper binaries are built elsewhere, set `AIR_CARD_BIN_ROOT`. It refuses to package when `device_helper` or `airtraffic_host` is missing, so an app without device support is never produced.
 
 ## Current behavior
 

@@ -89,7 +89,7 @@ final class AirliftWalletEngineTests: XCTestCase {
         let backend = directory.appendingPathComponent("aircard_backend.py")
         let body = lines.map { "print(\(String(reflecting: $0)))" }.joined(separator: "\n")
         try "import sys\n\(body)\nsys.exit(\(exitCode))\n".write(to: backend, atomically: true, encoding: .utf8)
-        return AirliftWalletEngine(toolchain: AirliftToolchain(deviceHelperURL: URL(fileURLWithPath: "/usr/bin/true"), backendURL: backend))
+        return AirliftWalletEngine(toolchain: AirliftToolchain(deviceHelperURL: URL(fileURLWithPath: "/usr/bin/true"), backendURL: backend, pythonURL: nil))
     }
 
     private let card = WalletCard.detected(hash: "e6c42Q8tXIOOufsm3Vw4hofx5sI=")
@@ -241,7 +241,7 @@ final class LiveScanTests: XCTestCase {
         let backend = directory.appendingPathComponent("aircard_backend.py")
         try "".write(to: backend, atomically: true, encoding: .utf8)
 
-        let transport = AirliftWalletTransport(toolchain: AirliftToolchain(deviceHelperURL: helper, backendURL: backend))
+        let transport = AirliftWalletTransport(toolchain: AirliftToolchain(deviceHelperURL: helper, backendURL: backend, pythonURL: nil))
         let device = Device(id: UUID(), udid: "test", name: "iPhone", model: "iPhone14,4", systemVersion: "27.0", connection: .usb)
         let events = LockedLines()
         let hashes = try await transport.scanCardHashes(on: device, duration: 5) { event in

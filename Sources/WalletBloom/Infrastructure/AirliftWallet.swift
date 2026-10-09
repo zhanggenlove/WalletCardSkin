@@ -3,17 +3,28 @@ import Foundation
 struct AirliftToolchain: Sendable {
     let deviceHelperURL: URL
     let backendURL: URL
+    /// App 内嵌的 Python 解释器；为 nil 时回退到系统 python3。
+    let pythonURL: URL?
 
     var isAvailable: Bool {
         FileManager.default.isExecutableFile(atPath: deviceHelperURL.path) &&
         FileManager.default.isReadableFile(atPath: backendURL.path)
     }
 
+    /// 刷入用的解释器：优先 App 内嵌的 Python，其次系统 python3（可能缺失）。
+    var pythonInvocation: (executable: URL, leadingArguments: [String]) {
+        if let pythonURL, FileManager.default.isExecutableFile(atPath: pythonURL.path) {
+            return (pythonURL, [])
+        }
+        return (URL(fileURLWithPath: "/usr/bin/env"), ["python3"])
+    }
+
     static func fromRepository(_ root: URL) -> AirliftToolchain {
         let build = root.appendingPathComponent("build")
         return AirliftToolchain(
             deviceHelperURL: build.appendingPathComponent("device_helper"),
-            backendURL: root.appendingPathComponent("aircard_backend.py")
+            backendURL: root.appendingPathComponent("aircard_backend.py"),
+            pythonURL: bundledPythonURL
         )
     }
 
@@ -22,9 +33,26 @@ struct AirliftToolchain: Sendable {
         let bin = resources.appendingPathComponent("bin")
         return AirliftToolchain(
             deviceHelperURL: bin.appendingPathComponent("device_helper"),
-            backendURL: resources.appendingPathComponent("aircard_backend.py")
+            backendURL: resources.appendingPathComponent("aircard_backend.py"),
+            pythonURL: bundledPythonURL
         )
     }
+
+    /// Contents/Resources/python-<arch>/bin/python3；Apple Silicon 用 arm64，Intel 用 x86_64。
+    /// 放在 Resources 而非 Frameworks：Python 目录里的 include、tcl 等子目录会让 codesign 误当成 bundle。
+    static var bundledPythonURL: URL? {
+        guard let resources = Bundle.main.resourceURL else { return nil }
+        let python = resources
+            .appendingPathComponent("python-\(isAppleSilicon ? "arm64" : "x86_64")")
+            .appendingPathComponent("bin/python3")
+        return FileManager.default.isExecutableFile(atPath: python.path) ? python : nil
+    }
+
+    private static let isAppleSilicon: Bool = {
+        var value: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        return sysctlbyname("hw.optional.arm64", &value, &size, nil, 0) == 0 && value == 1
+    }()
 
     /// 优先使用 App 包内的工具链；开发时（swift run / Xcode）可通过 AIR_CARD_ROOT 指向 AirCard 仓库。
     static var resolved: AirliftToolchain {
@@ -256,8 +284,9 @@ struct AirliftWalletEngine: WalletEngine {
 
     func flash(card: WalletCard, imageURL: URL, on device: Device, progress: @escaping @Sendable (FlashProgress) -> Void) async throws {
         guard toolchain.isAvailable else { throw WalletError.toolchainMissing }
-        let arguments = ["python3", toolchain.backendURL.path, "flash", device.udid ?? device.id.uuidString, card.cardHash, imageURL.path]
-        let result = try await process.run(URL(fileURLWithPath: "/usr/bin/env"), arguments: arguments, limit: .timeout(180)) { line in
+        let python = toolchain.pythonInvocation
+        let arguments = python.leadingArguments + [toolchain.backendURL.path, "flash", device.udid ?? device.id.uuidString, card.cardHash, imageURL.path]
+        let result = try await process.run(python.executable, arguments: arguments, limit: .timeout(180)) { line in
             guard let event = AirliftProcessResult.jsonObject(from: line),
                   event["type"] as? String == "progress",
                   let step = event["step"] as? Int, let total = event["total"] as? Int else { return }
