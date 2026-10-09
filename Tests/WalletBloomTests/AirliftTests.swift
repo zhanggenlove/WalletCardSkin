@@ -251,3 +251,44 @@ final class LiveScanTests: XCTestCase {
         XCTAssertEqual(events.values, ["connected", "e6c42Q8tXIOOufsm3Vw4hofx5sI="])
     }
 }
+
+final class RemoteSkinCatalogTests: XCTestCase {
+    private let manifest = #"""
+    {"version": 1, "skins": [
+      {"id": "3F2A7C1E-8D4B-4E6F-9A1B-2C3D4E5F6A7B", "name": "Fuji", "category": "风景", "image": "https://cdn.example.com/fuji.png"},
+      {"id": "not-a-uuid", "name": "Bad id", "image": "https://cdn.example.com/bad.png"},
+      {"id": "4F2A7C1E-8D4B-4E6F-9A1B-2C3D4E5F6A7B", "name": "Insecure", "image": "http://cdn.example.com/insecure.png"}
+    ]}
+    """#
+
+    func testDecodeKeepsOnlyValidEntries() throws {
+        let skins = try RemoteSkinCatalog.decode(Data(manifest.utf8))
+        XCTAssertEqual(skins.map(\.name), ["Fuji"], "非 UUID 的 id 和非 HTTPS 的图片地址都应被忽略")
+        XCTAssertEqual(skins.first?.category, "风景")
+    }
+
+    func testFallsBackToCacheWhenServerIsUnreachable() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("walletbloom-catalog-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appendingPathComponent("manifest.json")
+        let cache = directory.appendingPathComponent("cache/manifest.json")
+        try Data(manifest.utf8).write(to: source)
+
+        // 第一次成功拉取并写入缓存。
+        let online = RemoteSkinCatalog(manifestURL: source, cacheURL: cache)
+        let first = try await online.loadSkins()
+        XCTAssertEqual(first.count, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: cache.path))
+
+        // 服务器不可用时使用缓存。
+        let offline = RemoteSkinCatalog(manifestURL: directory.appendingPathComponent("missing.json"), cacheURL: cache)
+        let cached = try await offline.loadSkins()
+        XCTAssertEqual(cached.map(\.name), ["Fuji"])
+    }
+
+    func testCombinedCatalogWithoutServerReturnsBuiltInSkins() async throws {
+        let skins = try await CombinedSkinCatalog(remote: nil).loadSkins()
+        XCTAssertEqual(skins.map(\.id), Skin.placeholders.map(\.id))
+    }
+}

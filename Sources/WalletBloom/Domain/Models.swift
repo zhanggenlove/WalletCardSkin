@@ -51,7 +51,12 @@ struct Skin: Identifiable, Hashable {
     let id: UUID
     var name: String
     var subtitle: String
+    /// 皮肤库中的分类名称。
+    var category: String = Skin.builtInCategory
     var artwork: Artwork
+
+    static let builtInCategory = "渐变"
+    static let importedCategory = "我的图片"
 
     enum Artwork: Hashable {
         /// 内置渐变占位皮肤，刷入前渲染成 PNG。
@@ -62,7 +67,7 @@ struct Skin: Identifiable, Hashable {
         case remoteImage(URL)
     }
 
-    // TODO: 皮肤后续改为从服务器拉取（实现一个 RemoteSkinCatalog），这里的渐变仅作占位。
+    /// 内置渐变皮肤；服务器皮肤见 RemoteSkinCatalog。
     static let placeholders = [
         Skin(id: UUID(uuidString: "8A7D5C30-19E4-4EC8-9C5E-000000000101")!, name: "Sakura", subtitle: "柔和樱花", artwork: .gradient(["F6B7C8", "D9779B"])),
         Skin(id: UUID(uuidString: "8A7D5C30-19E4-4EC8-9C5E-000000000102")!, name: "Tokyo Night", subtitle: "城市霓虹", artwork: .gradient(["171B35", "5B4AA8"])),

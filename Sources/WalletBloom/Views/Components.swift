@@ -42,8 +42,18 @@ struct SkinArtworkView: View {
                 placeholder
             }
         case .remoteImage(let url):
-            AsyncImage(url: url) { phase in
-                if let image = phase.image { image.resizable().scaledToFill() } else { placeholder }
+            AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().scaledToFill()
+                case .failure:
+                    placeholder.overlay {
+                        Image(systemName: "exclamationmark.triangle").foregroundStyle(.secondary)
+                    }
+                    .help("皮肤图片加载失败，请检查网络连接")
+                default:
+                    placeholder.overlay { ProgressView().controlSize(.small) }
+                }
             }
         case nil:
             placeholder

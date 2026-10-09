@@ -17,6 +17,7 @@ struct WorkspaceView: View {
             SkinLibrary(store: store)
             BottomBar(store: store)
         }
+        .searchable(text: $store.skinSearchText, placement: .toolbar, prompt: "搜索皮肤")
         .fileImporter(isPresented: $store.isImporterPresented, allowedContentTypes: [.png, .jpeg, .heic, .tiff]) { result in
             if case .success(let url) = result { store.beginImport(from: url) }
         }
@@ -283,39 +284,56 @@ private struct SkinLibrary: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(spacing: 12) {
                 Text("选择皮肤").font(.headline)
                 Spacer()
-                Text("点击皮肤即时预览到卡面")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                Picker("分类", selection: $store.skinFilter) {
+                    Text("全部").tag(WalletBloomStore.SkinFilter.all)
+                    Label("收藏", systemImage: "star").tag(WalletBloomStore.SkinFilter.favorites)
+                    ForEach(store.skinCategories, id: \.self) { category in
+                        Text(category).tag(WalletBloomStore.SkinFilter.category(category))
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+                .help("按分类筛选皮肤")
             }
             .padding(.horizontal, 28)
             .padding(.top, 14)
             .padding(.bottom, 10)
 
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: 14) {
-                    ForEach(store.skins) { skin in
-                        SkinTile(
-                            skin: skin,
-                            isSelected: store.selectedSkin?.id == skin.id,
-                            isApplied: store.selectedCard?.currentSkinID == skin.id
-                        ) {
-                            store.selectSkin(skin)
-                        }
-                        .contextMenu {
-                            if store.isImported(skin) {
-                                Button("删除皮肤", systemImage: "trash", role: .destructive) {
-                                    store.deleteImportedSkin(skin)
+            if store.visibleSkins.isEmpty {
+                emptyState
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(store.visibleSkins) { skin in
+                            SkinTile(
+                                skin: skin,
+                                isSelected: store.selectedSkin?.id == skin.id,
+                                isApplied: store.selectedCard?.currentSkinID == skin.id,
+                                isFavorite: store.isFavorite(skin)
+                            ) {
+                                store.selectSkin(skin)
+                            }
+                            .contextMenu {
+                                Button(store.isFavorite(skin) ? "取消收藏" : "收藏", systemImage: store.isFavorite(skin) ? "star.slash" : "star") {
+                                    store.toggleFavorite(skin)
+                                }
+                                if store.isImported(skin) {
+                                    Divider()
+                                    Button("删除皮肤", systemImage: "trash", role: .destructive) {
+                                        store.deleteImportedSkin(skin)
+                                    }
                                 }
                             }
                         }
                     }
+                    .padding(.horizontal, 28)
+                    .padding(.top, 4)
+                    .padding(.bottom, 20)
                 }
-                .padding(.horizontal, 28)
-                .padding(.top, 4)
-                .padding(.bottom, 20)
             }
         }
         .frame(maxHeight: .infinity)
@@ -330,10 +348,24 @@ private struct SkinLibrary: View {
     }
 }
 
+private extension SkinLibrary {
+    @ViewBuilder
+    var emptyState: some View {
+        if !store.skinSearchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            ContentUnavailableView.search(text: store.skinSearchText)
+        } else if store.skinFilter == .favorites {
+            ContentUnavailableView("还没有收藏的皮肤", systemImage: "star", description: Text("在皮肤上右键选择「收藏」，就能在这里快速找到。"))
+        } else {
+            ContentUnavailableView("这个分类下没有皮肤", systemImage: "square.grid.2x2")
+        }
+    }
+}
+
 private struct SkinTile: View {
     let skin: Skin
     let isSelected: Bool
     let isApplied: Bool
+    let isFavorite: Bool
     let action: () -> Void
     @State private var isHovering = false
 
@@ -350,6 +382,11 @@ private struct SkinTile: View {
                     HStack(spacing: 4) {
                         Text(skin.name).font(.callout.weight(.semibold))
                         Spacer(minLength: 0)
+                        if isFavorite {
+                            Image(systemName: "star.fill")
+                                .foregroundStyle(.yellow)
+                                .help("已收藏")
+                        }
                         if isApplied {
                             Image(systemName: "checkmark.seal.fill")
                                 .foregroundStyle(.green)

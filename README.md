@@ -40,7 +40,7 @@ The store drives a single phase state machine: `launching → onboarding → sca
 - **Menus** — WalletBloom (About, Check for Updates…), File (Import Image ⌘O, Scan Cards ⌘R), Cards (previous/next, rename, apply ⌘↩, remove), Help (privacy, disclaimer, support). Updates use Sparkle and stay disabled until `SUFeedURL` / `SUPublicEDKey` are set — see `docs/roadmap.md`.
 - **Language** — Simplified Chinese only for now, including system menu items; internationalization is planned in `docs/roadmap.md`.
 - **Local library** — `~/Library/Application Support/WalletBloom/` keeps scanned and removed cards, the skin applied to each card, and copies of imported images.
-- Skins come from a `SkinCatalog`; `PlaceholderSkinCatalog` returns eight gradients until a server catalog exists. `Skin.Artwork` already supports `.remoteImage`, which is downloaded before flashing.
+- **Skin library** — built-in gradients plus an optional server catalog (`WBSkinCatalogURL`, format in `docs/skin-catalog.md`, cached for offline use). Category picker, toolbar search and favorites (right-click). Remote images are downloaded only when applied.
 
 ## Airlift integration
 

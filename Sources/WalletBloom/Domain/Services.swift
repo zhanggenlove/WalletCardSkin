@@ -62,11 +62,6 @@ enum WalletError: LocalizedError {
     }
 }
 
-/// 在服务器皮肤接口就绪前使用的占位目录。
-struct PlaceholderSkinCatalog: SkinCatalog {
-    func loadSkins() async throws -> [Skin] { Skin.placeholders }
-}
-
 // TODO: 占位信息，上线前替换为真实的技术支持渠道。
 enum SupportContact {
     static let email = "support@example.com"
