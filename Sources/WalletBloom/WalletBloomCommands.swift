@@ -15,7 +15,7 @@ struct WalletBloomCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
-            Button("关于 WalletBloom") { showAboutPanel() }
+            Button("关于\(AppInfo.displayName)") { showAboutPanel() }
             Button("检查更新…") { updater.checkForUpdates() }
                 .disabled(!updater.canCheckForUpdates)
         }
@@ -58,7 +58,7 @@ struct WalletBloomCommands: Commands {
                 .disabled(!isInteractive)
             Divider()
             Button("联系技术支持…") {
-                if let url = SupportContact.mailURL(subject: "WalletBloom 反馈", body: "") { NSWorkspace.shared.open(url) }
+                if let url = SupportContact.mailURL(subject: "\(AppInfo.displayName) 反馈", body: "") { NSWorkspace.shared.open(url) }
             }
         }
     }

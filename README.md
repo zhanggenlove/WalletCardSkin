@@ -1,4 +1,4 @@
-# WalletBloom
+# 钱包卡片皮肤管家（WalletBloom）
 
 WalletBloom is a native macOS SwiftUI starter project for designing and applying visual skins to Apple Wallet cards.
 

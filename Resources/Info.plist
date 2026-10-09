@@ -11,13 +11,13 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleDisplayName</key>
-	<string>WalletBloom</string>
+	<string>钱包卡片皮肤管家</string>
 	<key>CFBundleExecutable</key>
 	<string>WalletBloom</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.walletbloom.app</string>
 	<key>CFBundleName</key>
-	<string>WalletBloom</string>
+	<string>钱包卡片皮肤管家</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

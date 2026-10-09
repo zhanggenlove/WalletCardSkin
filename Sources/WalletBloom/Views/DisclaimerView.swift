@@ -24,7 +24,7 @@ struct DisclaimerView: View {
                     .foregroundStyle(.orange)
                 Text("使用须知")
                     .font(.title2.weight(.bold))
-                Text(mode == .agreement ? "开始使用前，请花一分钟阅读以下内容。" : "WalletBloom 免责声明")
+                Text(mode == .agreement ? "开始使用前，请花一分钟阅读以下内容。" : "\(AppInfo.displayName) 免责声明")
                     .foregroundStyle(.secondary)
             }
             .padding(.top, 28)
@@ -32,8 +32,8 @@ struct DisclaimerView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    DisclaimerSection(title: "第三方工具", text: "WalletBloom 是独立开发的第三方工具，与 Apple Inc. 以及任何银行、发卡机构、卡组织均无关联，也未获得其授权或认可。Apple、Apple Pay、iPhone、钱包是 Apple Inc. 的商标。")
-                    DisclaimerSection(title: "修改了什么", text: "WalletBloom 通过数据线修改 iPhone 钱包中卡片的显示图片，不会改动支付凭证。这项修改不是 Apple 官方提供的功能。")
+                    DisclaimerSection(title: "第三方工具", text: "\(AppInfo.displayName) 是独立开发的第三方工具，与 Apple Inc. 以及任何银行、发卡机构、卡组织均无关联，也未获得其授权或认可。Apple、Apple Pay、iPhone、钱包是 Apple Inc. 的商标。")
+                    DisclaimerSection(title: "修改了什么", text: "\(AppInfo.displayName) 通过数据线修改 iPhone 钱包中卡片的显示图片，不会改动支付凭证。这项修改不是 Apple 官方提供的功能。")
                     DisclaimerSection(title: "无法恢复原卡面", text: RestoreNotice.detail, isEmphasized: true)
                     DisclaimerSection(title: "可能出现的情况", text: "更新 iOS 或钱包重新同步卡片后，卡面可能被系统还原；个别系统版本上卡面可能显示异常。")
                     DisclaimerSection(title: "皮肤与版权", text: "内置皮肤不包含任何银行、发卡机构或卡组织的标识。你导入的图片由你自行负责，请确保拥有使用权。")
@@ -90,6 +90,6 @@ private struct DisclaimerSection: View {
 
 /// 「无法恢复原卡面」的统一说法，免责声明和应用前的确认弹窗共用，保证各处一致。
 enum RestoreNotice {
-    static let title = "应用后无法通过 WalletBloom 恢复原卡面"
-    static let detail = "WalletBloom 不会备份卡片原来的卡面，更换皮肤后无法在 App 内恢复。如需恢复发卡机构的原始卡面，请在 iPhone 钱包中移除这张卡片后重新添加（可能需要发卡机构重新验证）。"
+    static let title = "应用后无法通过 \(AppInfo.displayName) 恢复原卡面"
+    static let detail = "\(AppInfo.displayName) 不会备份卡片原来的卡面，更换皮肤后无法在 App 内恢复。如需恢复发卡机构的原始卡面，请在 iPhone 钱包中移除这张卡片后重新添加（可能需要发卡机构重新验证）。"
 }

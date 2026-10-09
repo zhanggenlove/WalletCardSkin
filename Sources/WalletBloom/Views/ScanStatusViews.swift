@@ -107,7 +107,7 @@ struct NoCardsView: View {
 
     private func openSupportMail() {
         let body = "设备：\(store.device.map { "\($0.name) \($0.model) \($0.systemVersion)" } ?? "未连接")\n问题：扫描不到钱包中的卡片"
-        if let url = SupportContact.mailURL(subject: "WalletBloom 无法识别卡片", body: body) { openURL(url) }
+        if let url = SupportContact.mailURL(subject: "\(AppInfo.displayName) 无法识别卡片", body: body) { openURL(url) }
     }
 }
 
@@ -155,6 +155,6 @@ struct ScanFailedView: View {
 
     private func openSupportMail() {
         let body = "设备：\(store.device.map { "\($0.name) \($0.model) \($0.systemVersion)" } ?? "未连接")\n错误信息：\(message)"
-        if let url = SupportContact.mailURL(subject: "WalletBloom 扫描故障", body: body) { openURL(url) }
+        if let url = SupportContact.mailURL(subject: "\(AppInfo.displayName) 扫描故障", body: body) { openURL(url) }
     }
 }

@@ -507,7 +507,7 @@ private struct FooterBar: View {
 
     var body: some View {
         HStack {
-            Text("WalletBloom for macOS · 独立开发的第三方工具，与 Apple 及任何发卡机构无关")
+            Text("\(AppInfo.displayName) · 独立开发的第三方工具，与 Apple 及任何发卡机构无关")
             Spacer()
             Text(version)
         }

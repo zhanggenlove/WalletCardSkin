@@ -12,13 +12,13 @@ struct ContentView: View {
             .transition(.opacity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle("WalletBloom")
+        .navigationTitle(AppInfo.displayName)
         .toolbar {
             // 左侧：App 图标与名称，只是标题，不需要工具栏按钮的玻璃底。
             ToolbarItem(placement: .navigation) {
                 HStack(spacing: 8) {
                     AppGlyph(size: 22)
-                    Text("WalletBloom").font(.headline)
+                    Text(AppInfo.displayName).font(.headline)
                 }
                 .accessibilityElement(children: .combine)
             }
@@ -32,7 +32,7 @@ struct ContentView: View {
                 Button { store.infoSheet = .privacy } label: {
                     Label("隐私与安全", systemImage: "hand.raised")
                 }
-                .help("隐私与安全：WalletBloom 不会上传或读取你的支付信息")
+                .help("隐私与安全：\(AppInfo.displayName) 不会上传或读取你的支付信息")
                 ConnectionBadge(store: store)
             }
         }
