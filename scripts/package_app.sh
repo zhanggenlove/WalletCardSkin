@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-AIR_CARD_ROOT="${AIR_CARD_ROOT:-/Users/zhanggen/Downloads/AirCard-main}"
+AIR_CARD_ROOT="${AIR_CARD_ROOT:-${HOME}/Downloads/AirCard-main}"
 AIR_CARD_BIN_ROOT="${AIR_CARD_BIN_ROOT:-${AIR_CARD_ROOT}/build}"
 APP_ROOT="${PROJECT_ROOT}/build/WalletBloom.app"
 CONTENTS_ROOT="${APP_ROOT}/Contents"
