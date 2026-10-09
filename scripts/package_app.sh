@@ -28,6 +28,11 @@ rm -rf "${APP_ROOT}"
 mkdir -p "${CONTENTS_ROOT}/MacOS" "${CONTENTS_ROOT}/Frameworks" "${BIN_ROOT}"
 cp "${PROJECT_ROOT}/Resources/Info.plist" "${CONTENTS_ROOT}/Info.plist"
 cp "${PROJECT_ROOT}/Resources/AppIcon.icns" "${RESOURCES_ROOT}/AppIcon.icns"
+# 随 App 分发第三方组件，依许可附上许可证。
+mkdir -p "${RESOURCES_ROOT}/Licenses"
+cp "${PROJECT_ROOT}/LICENSE" "${RESOURCES_ROOT}/Licenses/WalletBloom-LICENSE.txt"
+cp "${PROJECT_ROOT}/THIRD_PARTY_NOTICES.md" "${RESOURCES_ROOT}/Licenses/THIRD_PARTY_NOTICES.md"
+[[ -f "${AIR_CARD_ROOT}/LICENSE" ]] && cp "${AIR_CARD_ROOT}/LICENSE" "${RESOURCES_ROOT}/Licenses/AirCard-LICENSE.txt"
 mkdir -p "${RESOURCES_ROOT}/BuiltInSkins"
 find "${PROJECT_ROOT}/Resources/BuiltInSkins" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.heic' \) -exec cp {} "${RESOURCES_ROOT}/BuiltInSkins/" \;
 ditto "${SPARKLE_FRAMEWORK}" "${CONTENTS_ROOT}/Frameworks/Sparkle.framework"
