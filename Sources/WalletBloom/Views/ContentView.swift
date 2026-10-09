@@ -14,6 +14,7 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("WalletBloom")
         .toolbar {
+            // 左侧：App 图标与名称，只是标题，不需要工具栏按钮的玻璃底。
             ToolbarItem(placement: .navigation) {
                 HStack(spacing: 8) {
                     AppGlyph(size: 22)
@@ -21,7 +22,9 @@ struct ContentView: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-            ToolbarItemGroup(placement: .primaryAction) {
+            .withoutSharedBackground()
+            // 右侧：macOS 上 .primaryAction 会排在左侧标题旁边，默认位置（automatic）才在最右侧。
+            ToolbarItemGroup(placement: .automatic) {
                 Button { store.infoSheet = .privacy } label: {
                     Label("隐私与安全", systemImage: "hand.raised")
                 }
@@ -107,5 +110,17 @@ private struct ConnectionBadge: View {
         }
         .font(.callout)
         .padding(.horizontal, 8)
+    }
+}
+
+private extension ToolbarContent {
+    /// macOS 26 起工具栏项默认带玻璃胶囊底，标题类内容需要关掉；更早的系统没有这层底，原样返回。
+    @ToolbarContentBuilder
+    func withoutSharedBackground() -> some ToolbarContent {
+        if #available(macOS 26.0, *) {
+            sharedBackgroundVisibility(.hidden)
+        } else {
+            self
+        }
     }
 }
