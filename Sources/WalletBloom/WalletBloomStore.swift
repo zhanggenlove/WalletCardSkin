@@ -259,6 +259,22 @@ final class WalletBloomStore: ObservableObject {
         if cards.isEmpty { transition(to: .noCards) }
     }
 
+    var removedCardCount: Int { library.hiddenCardHashes.count }
+
+    /// 把所有移除过的卡片放回列表（例如误删了真卡）。
+    func restoreRemovedCards() async {
+        guard !library.hiddenCardHashes.isEmpty else { return }
+        for hash in library.hiddenCardHashes where !library.scannedCardHashes.contains(hash) {
+            library.scannedCardHashes.append(hash)
+        }
+        let count = library.hiddenCardHashes.count
+        library.hiddenCardHashes = []
+        saveLibrary()
+        let known = await knownCards()
+        if !known.isEmpty { show(known) }
+        notice = "已恢复 \(count) 张卡片"
+    }
+
     /// 重命名卡片；名称为空时恢复为默认的「卡片 N」。
     func renameCard(_ card: WalletCard, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)

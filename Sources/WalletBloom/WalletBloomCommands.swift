@@ -45,6 +45,10 @@ struct WalletBloomCommands: Commands {
                 if let card = store.selectedCard { store.removeCard(card) }
             }
             .disabled(!isInteractive || !store.canEditCards || store.selectedCard == nil)
+            Button(store.removedCardCount > 0 ? "恢复已移除的卡片（\(store.removedCardCount)）" : "恢复已移除的卡片") {
+                Task { await store.restoreRemovedCards() }
+            }
+            .disabled(!isInteractive || store.removedCardCount == 0 || coordinator.isRunning || store.phase == .scanning || store.phase == .launching)
         }
 
         CommandGroup(replacing: .help) {
