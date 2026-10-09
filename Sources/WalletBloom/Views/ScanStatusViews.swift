@@ -1,14 +1,13 @@
 import SwiftUI
 
 struct ScanningView: View {
-    let progress: Double
-    let duration: TimeInterval
-    let onCancel: () -> Void
+    @ObservedObject var store: WalletBloomStore
 
-    private var remainingSeconds: Int { max(Int((1 - progress) * duration), 0) }
+    private var remainingSeconds: Int { max(Int((1 - store.scanProgress) * store.scanDuration), 0) }
+    private var foundCount: Int { store.scanFoundCount }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 22) {
             ZStack {
                 PulseRings().frame(width: 120, height: 120)
                 Image(systemName: "wallet.pass")
@@ -17,28 +16,63 @@ struct ScanningView: View {
                     .symbolEffect(.pulse)
             }
 
-            VStack(spacing: 6) {
-                Text("正在扫描 Wallet 卡片…")
+            VStack(spacing: 8) {
+                Text(foundCount == 0 ? "正在扫描 Wallet 卡片…" : "已发现 \(foundCount) 张卡片")
                     .font(.title2.weight(.semibold))
-                Text("请在 iPhone 上保持钱包 App 打开，不要断开数据线")
-                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+                    .animation(.smooth, value: foundCount)
+                connectionStatus
+                    .font(.callout)
             }
 
+            Label {
+                Text("在 iPhone 上连按两下侧边按钮打开钱包，验证后点按或左右切换卡片，可以更快识别全部卡片。扫描期间请保持数据线连接。")
+                    .fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: "lightbulb.fill").symbolRenderingMode(.multicolor)
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .padding(12)
+            .frame(width: 400, alignment: .leading)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
             VStack(spacing: 8) {
-                ProgressView(value: progress)
+                ProgressView(value: store.scanProgress)
                     .frame(width: 280)
-                Text(remainingSeconds > 0 ? "预计还需 \(remainingSeconds) 秒" : "正在整理结果…")
+                Text(remainingSeconds > 0 ? "最长还需 \(remainingSeconds) 秒" : "正在整理结果…")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
 
-            Button("取消扫描", action: onCancel)
-                .controlSize(.large)
-                .keyboardShortcut(.cancelAction)
+            HStack(spacing: 12) {
+                Button("取消扫描", action: store.cancelScan)
+                    .keyboardShortcut(.cancelAction)
+                Button("完成扫描", action: store.finishScanEarly)
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(foundCount == 0)
+                    .help(foundCount == 0 ? "发现卡片后即可提前完成" : "停止扫描并使用已发现的卡片")
+            }
+            .controlSize(.large)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var connectionStatus: some View {
+        if store.isScanLogConnected {
+            Label("已连接，正在读取钱包日志", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        } else {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("正在连接 iPhone 日志…")
+            }
+            .foregroundStyle(.secondary)
+        }
     }
 }
 

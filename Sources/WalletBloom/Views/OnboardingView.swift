@@ -22,7 +22,7 @@ struct OnboardingView: View {
                     OnboardingStep(number: 1, systemImage: "cable.connector", title: "用数据线连接 Mac 与 iPhone", detail: "推荐使用原装数据线，避免使用仅支持充电的线材", isDone: isConnected)
                     OnboardingStep(number: 2, systemImage: "lock.shield", title: "在 iPhone 上点按「信任此电脑」", detail: "解锁 iPhone 并输入锁屏密码以完成授权", isDone: isConnected)
                     OnboardingStep(number: 3, systemImage: "wallet.pass", title: "打开 iPhone 上的钱包 App", detail: "或连按两下侧边按钮唤起钱包", isDone: false)
-                    OnboardingStep(number: 4, systemImage: "sparkle.magnifyingglass", title: "点击下方「开始扫描卡片」", detail: "扫描约需 \(Int(store.scanDuration)) 秒，请保持钱包处于打开状态", isDone: false)
+                    OnboardingStep(number: 4, systemImage: "sparkle.magnifyingglass", title: "点击下方「开始扫描卡片」", detail: "最长 \(Int(store.scanDuration)) 秒，发现卡片后可以提前完成", isDone: false)
                 }
                 .padding(.top, 26)
 

@@ -219,3 +219,35 @@ final class CardArtworkCropperTests: XCTestCase {
         XCTAssertEqual(bitmap.pixelsHigh, 969)
     }
 }
+
+final class LiveScanTests: XCTestCase {
+    func testScannerReportsConnectionAndCardsAsTheyAppear() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("walletbloom-scan-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        // 模拟 device_helper syslog 的输出。
+        let helper = directory.appendingPathComponent("device_helper")
+        try """
+        #!/bin/sh
+        echo "AirCard scanner: Connected to the unified device log stream."
+        echo "apsd(ApplePushService): token 2z3lvOAAAWzapTbLBMM7yQDcfeo="
+        echo "passd(PassKitCore): open /var/mobile/Library/Passes/Cards/e6c42Q8tXIOOufsm3Vw4hofx5sI=.pkpass"
+        """.write(to: helper, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: helper.path)
+        let backend = directory.appendingPathComponent("aircard_backend.py")
+        try "".write(to: backend, atomically: true, encoding: .utf8)
+
+        let transport = AirliftWalletTransport(toolchain: AirliftToolchain(deviceHelperURL: helper, backendURL: backend))
+        let device = Device(id: UUID(), udid: "test", name: "iPhone", model: "iPhone14,4", systemVersion: "27.0", connection: .usb)
+        let events = LockedLines()
+        let hashes = try await transport.scanCardHashes(on: device, duration: 5) { event in
+            switch event {
+            case .connected: events.append("connected")
+            case .found(let hash): events.append(hash)
+            }
+        }
+        XCTAssertEqual(hashes, ["e6c42Q8tXIOOufsm3Vw4hofx5sI="])
+        XCTAssertEqual(events.values, ["connected", "e6c42Q8tXIOOufsm3Vw4hofx5sI="])
+    }
+}

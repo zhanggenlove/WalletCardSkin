@@ -189,10 +189,13 @@ struct AirliftWalletTransport: WalletTransport, WalletCardScanner {
         return hashes.map(WalletCard.detected(hash:))
     }
 
-    func scanCardHashes(on device: Device, duration: TimeInterval) async throws -> [String] {
+    func scanCardHashes(on device: Device, duration: TimeInterval, onEvent: @escaping @Sendable (ScanEvent) -> Void) async throws -> [String] {
         guard let udid = device.udid else { throw WalletError.deviceUnavailable }
         guard toolchain.isAvailable else { throw WalletError.toolchainMissing }
-        let result = try await process.run(toolchain.deviceHelperURL, arguments: ["syslog", udid], limit: .duration(duration))
+        let result = try await process.run(toolchain.deviceHelperURL, arguments: ["syslog", udid], limit: .duration(duration)) { line in
+            if line.contains(CardHashExtractor.connectedMarker) { onEvent(.connected) }
+            CardHashExtractor.extract(from: [line]).forEach { onEvent(.found($0)) }
+        }
         return CardHashExtractor.extract(from: result.output)
     }
 
@@ -207,6 +210,9 @@ struct AirliftWalletTransport: WalletTransport, WalletCardScanner {
 
 /// 从设备日志中提取 Wallet 卡片 hash。
 enum CardHashExtractor {
+    /// device_helper 连上统一日志流时输出的提示（见 AirCard README）。
+    static let connectedMarker = "Connected to the unified device log stream"
+
     /// 路径形式（…/Passes/Cards/<hash>.pkpass）足够明确，任何进程的日志都采信。
     private static let pathPatterns = [
         #"/(?:Cards|Passes/Cards)/([-A-Za-z0-9_+=]{20,44})(?:\.pkpass|\.cache|\.pkcache|/|\s|\"|\'|\)|,|$)"#,

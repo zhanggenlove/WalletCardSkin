@@ -18,6 +18,9 @@ final class WalletBloomStore: ObservableObject {
     @Published private(set) var skins: [Skin] = []
     @Published private(set) var selectedCardID: WalletCard.ID?
     @Published private(set) var scanProgress: Double = 0
+    @Published private(set) var isScanLogConnected = false
+    /// 本次扫描已发现的卡片数（不含用户移除过的卡片）。
+    @Published private(set) var scanFoundCount = 0
     @Published private(set) var notice: String?
     @Published private var skinSelections: [WalletCard.ID: Skin.ID] = [:]
 
@@ -43,7 +46,8 @@ final class WalletBloomStore: ObservableObject {
     static let suppressRestoreWarningKey = "suppressRestoreWarning"
 
     let coordinator: DefaultFlashCoordinator
-    let scanDuration: TimeInterval = 20
+    /// 扫描最长时间；发现卡片后用户可以提前结束。
+    let scanDuration: TimeInterval = 30
     private let transport: any WalletTransport
     private let scanner: any WalletCardScanner
     private let skinCatalog: any SkinCatalog
@@ -51,6 +55,9 @@ final class WalletBloomStore: ObservableObject {
     private let isToolchainAvailable: Bool
     private var library: LibraryState
     private var scanTask: Task<Void, Never>?
+    /// 只负责读取日志的子任务；提前结束扫描时只停止它，后续的设备检查和结果处理照常进行。
+    private var scanJob: Task<[String], Error>?
+    private var scanFoundHashes = Set<String>()
 
     init(toolchain: AirliftToolchain = .resolved, skinCatalog: any SkinCatalog = PlaceholderSkinCatalog(), libraryStore: LibraryStore = LibraryStore()) {
         let airlift = AirliftWalletTransport(toolchain: toolchain)
@@ -150,6 +157,12 @@ final class WalletBloomStore: ObservableObject {
 
     func cancelScan() { scanTask?.cancel() }
 
+    /// 提前结束扫描并保留已发现的卡片。
+    func finishScanEarly() {
+        guard scanFoundCount > 0 else { return }
+        scanJob?.cancel()
+    }
+
     private func performScan() async {
         await refreshDevice()
         guard let device else {
@@ -158,6 +171,9 @@ final class WalletBloomStore: ObservableObject {
         }
         notice = nil
         scanProgress = 0
+        isScanLogConnected = false
+        scanFoundCount = 0
+        scanFoundHashes = []
         transition(to: .scanning)
 
         let started = Date()
@@ -170,7 +186,14 @@ final class WalletBloomStore: ObservableObject {
         defer { ticker.cancel() }
 
         do {
-            let hashes = try await scanner.scanCardHashes(on: device, duration: scanDuration)
+            let job = Task { [scanner, scanDuration] in
+                try await scanner.scanCardHashes(on: device, duration: scanDuration) { [weak self] event in
+                    Task { @MainActor in self?.handle(event) }
+                }
+            }
+            scanJob = job
+            defer { scanJob = nil }
+            let hashes = try await withTaskCancellationHandler { try await job.value } onCancel: { job.cancel() }
             guard !Task.isCancelled else { return leaveCancelledScan() }
             // 扫描期间拔掉设备时，日志流会提前结束，结果不可信。
             await refreshDevice()
@@ -192,6 +215,18 @@ final class WalletBloomStore: ObservableObject {
             guard !Task.isCancelled else { return leaveCancelledScan() }
             await refreshDevice()
             transition(to: self.device == nil ? .onboarding : .failed(error.localizedDescription))
+        }
+    }
+
+    private func handle(_ event: ScanEvent) {
+        guard phase == .scanning else { return }
+        switch event {
+        case .connected:
+            isScanLogConnected = true
+        case .found(let hash):
+            guard !library.hiddenCardHashes.contains(hash), scanFoundHashes.insert(hash).inserted else { return }
+            isScanLogConnected = true
+            scanFoundCount = scanFoundHashes.count
         }
     }
 

@@ -22,7 +22,15 @@ protocol WalletTransport {
 }
 
 protocol WalletCardScanner {
-    func scanCardHashes(on device: Device, duration: TimeInterval) async throws -> [String]
+    /// 扫描设备日志中的卡片 hash；`onEvent` 在扫描过程中实时回调（可能来自后台线程）。
+    func scanCardHashes(on device: Device, duration: TimeInterval, onEvent: @escaping @Sendable (ScanEvent) -> Void) async throws -> [String]
+}
+
+enum ScanEvent: Sendable {
+    /// 已连接到设备的统一日志流。
+    case connected
+    /// 发现一个卡片 hash（同一个 hash 可能多次回调）。
+    case found(String)
 }
 
 protocol WalletEngine {

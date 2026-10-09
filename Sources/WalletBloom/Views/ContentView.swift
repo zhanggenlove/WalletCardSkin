@@ -54,7 +54,7 @@ struct ContentView: View {
         case .onboarding:
             OnboardingView(store: store) { store.infoSheet = .privacy }
         case .scanning:
-            ScanningView(progress: store.scanProgress, duration: store.scanDuration, onCancel: store.cancelScan)
+            ScanningView(store: store)
         case .noCards:
             NoCardsView(store: store)
         case .failed(let message):
