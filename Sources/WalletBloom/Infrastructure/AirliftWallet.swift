@@ -268,9 +268,26 @@ struct AirliftWalletEngine: WalletEngine {
         let events = result.jsonObjects
         let succeeded = result.exitCode == 0 && events.contains { $0["type"] as? String == "success" || $0["ok"] as? Bool == true }
         guard succeeded else {
-            let failure = events.last { $0["type"] as? String == "error" || $0["ok"] as? Bool == false }
-            let message = failure?["message"] as? String ?? failure?["error"] as? String ?? "AirCard backend 刷入失败（退出码 \(result.exitCode)）"
-            throw WalletError.unsupported(message)
+            // 取第一条错误：backend 会先输出具体原因，最后再补一条笼统的 “Failed to update …”。
+            let failure = events.first { $0["type"] as? String == "error" || $0["ok"] as? Bool == false }
+            guard let message = failure?["message"] as? String ?? failure?["error"] as? String else {
+                throw WalletError.unsupported("写入失败（退出码 \(result.exitCode)），请重新连接 iPhone 后再试")
+            }
+            throw WalletError.unsupported(BackendMessage.localized(message))
         }
+    }
+}
+
+/// 把 AirCard backend 的英文报错转成用户能看懂的中文，并给出下一步建议。
+enum BackendMessage {
+    private static let rules: [(prefix: String, text: String)] = [
+        ("Image file not found", "找不到要写入的卡面图片，请重新选择皮肤后再试"),
+        ("Failed to prepare card artwork", "卡面图片处理失败，请换一张图片后再试"),
+        ("Could not clear Wallet cache", "无法刷新钱包缓存，新卡面可能没有生效。请解锁 iPhone、重新连接后再试"),
+        ("Failed to update", "写入卡面失败。请确认 iPhone 已解锁并保持数据线连接，然后重试")
+    ]
+
+    static func localized(_ message: String) -> String {
+        rules.first { message.hasPrefix($0.prefix) }?.text ?? "写入失败：\(message)"
     }
 }

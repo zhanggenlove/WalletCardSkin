@@ -108,16 +108,19 @@ final class AirliftWalletEngineTests: XCTestCase {
         XCTAssertEqual(steps.values, ["1/4", "2/4", "3/4"])
     }
 
-    func testErrorEventThrowsItsMessage() async throws {
+    func testFirstErrorIsShownInChinese() async throws {
         let engine = try engine(printing: [
             #"{"type": "progress", "card": "x", "step": 1, "total": 4, "message": "Writing"}"#,
-            #"{"type": "error", "card": "x", "step": 2, "total": 4, "message": "Could not clear Wallet cache (.cache)"}"#
+            #"{"type": "error", "card": "x", "step": 2, "total": 4, "message": "Could not clear Wallet cache (.cache); card was not reported as updated."}"#,
+            #"{"type": "error", "card": "x", "step": 4, "total": 4, "message": "Failed to update e6c42Q8tXIOO..."}"#
         ], exitCode: 1)
         do {
             try await engine.flash(card: card, imageURL: directory, on: device) { _ in }
             XCTFail("expected failure")
         } catch {
-            XCTAssertEqual(error.localizedDescription, "Could not clear Wallet cache (.cache)")
+            // 应显示第一条、更具体的原因，并翻译成中文。
+            XCTAssertEqual(error.localizedDescription, BackendMessage.localized("Could not clear Wallet cache"))
+            XCTAssertTrue(error.localizedDescription.contains("钱包缓存"))
         }
     }
 
@@ -127,7 +130,7 @@ final class AirliftWalletEngineTests: XCTestCase {
             try await engine.flash(card: card, imageURL: directory, on: device) { _ in }
             XCTFail("expected failure")
         } catch {
-            XCTAssertEqual(error.localizedDescription, "Image file not found")
+            XCTAssertEqual(error.localizedDescription, "找不到要写入的卡面图片，请重新选择皮肤后再试")
         }
     }
 }
@@ -303,5 +306,11 @@ final class SystemCompatibilityTests: XCTestCase {
         XCTAssertEqual(SystemCompatibility.check("Unknown"), .unknown)
         XCTAssertTrue(SystemCompatibility.check("16.7").isBlocking)
         XCTAssertFalse(SystemCompatibility.check("28.0").isBlocking)
+    }
+}
+
+final class BackendMessageTests: XCTestCase {
+    func testUnknownMessagesKeepOriginalText() {
+        XCTAssertEqual(BackendMessage.localized("Something new"), "写入失败：Something new")
     }
 }
