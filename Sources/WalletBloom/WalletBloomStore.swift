@@ -31,6 +31,9 @@ final class WalletBloomStore: ObservableObject {
     @Published var infoSheet: InfoSheet?
     @Published var isImporterPresented = false
     @Published var renamingCard: WalletCard?
+    @Published var isConfirmingApply = false
+    /// 与 WorkspaceView 中的 @AppStorage 共用同一个 key。
+    static let suppressRestoreWarningKey = "suppressRestoreWarning"
 
     let coordinator: DefaultFlashCoordinator
     let scanDuration: TimeInterval = 20
@@ -243,6 +246,16 @@ final class WalletBloomStore: ObservableObject {
         skinSelections = skinSelections.filter { $0.value != skin.id }
         for index in cards.indices where cards[index].currentSkinID == skin.id {
             cards[index].currentSkinID = nil
+        }
+    }
+
+    /// 应用前先提醒用户无法恢复原卡面（用户勾选“不再提示”后直接应用）。
+    func requestApply() {
+        guard canApply else { return }
+        if UserDefaults.standard.bool(forKey: Self.suppressRestoreWarningKey) {
+            Task { await applySelectedSkin() }
+        } else {
+            isConfirmingApply = true
         }
     }
 

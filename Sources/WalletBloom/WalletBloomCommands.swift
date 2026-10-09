@@ -37,7 +37,7 @@ struct WalletBloomCommands: Commands {
             Divider()
             Button("重命名…") { store.renamingCard = store.selectedCard }
                 .disabled(!isInteractive || !store.canEditCards || store.selectedCard == nil)
-            Button("应用到 iPhone") { Task { await store.applySelectedSkin() } }
+            Button("应用到 iPhone") { store.requestApply() }
                 .keyboardShortcut(.return)
                 .disabled(!isInteractive || !store.canApply)
             Divider()

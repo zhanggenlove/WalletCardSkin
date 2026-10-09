@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct WorkspaceView: View {
     @ObservedObject var store: WalletBloomStore
     @ObservedObject var coordinator: DefaultFlashCoordinator
+    @AppStorage(WalletBloomStore.suppressRestoreWarningKey) private var suppressRestoreWarning = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,6 +20,19 @@ struct WorkspaceView: View {
         .fileImporter(isPresented: $store.isImporterPresented, allowedContentTypes: [.png, .jpeg, .heic, .tiff]) { result in
             if case .success(let url) = result { store.importSkin(from: url) }
         }
+        .confirmationDialog(RestoreNotice.title, isPresented: $store.isConfirmingApply) {
+            Button("应用到 iPhone") {
+                // 等确认框完全收起后再弹出同步进度，避免两个弹窗同时出现时后者被系统忽略。
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    await store.applySelectedSkin()
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text(RestoreNotice.detail)
+        }
+        .dialogSuppressionToggle("不再提示", isSuppressed: $suppressRestoreWarning)
         // 同步期间以模态弹窗展示进度，窗口其余部分（包括关闭按钮）都不可操作。
         .sheet(isPresented: Binding(get: { coordinator.activeJob != nil }, set: { if !$0 { coordinator.dismiss() } })) {
             SyncSheet(coordinator: coordinator) {
@@ -133,7 +147,7 @@ private struct RefreshWalletTip: View {
                 Text("1. 在 iPhone 上从屏幕底部上滑并停顿，打开后台 App 列表（有主屏幕按钮的机型：连按两下主屏幕按钮）")
                     .fixedSize(horizontal: false, vertical: true)
                 Text("2. 找到「钱包」，向上滑动将其关闭")
-                Text("3. 重新打开钱包，即可看到新卡面")
+                Text("3. 重新打开钱包，即可看到新卡面（仍是旧卡面时，可重启 iPhone）")
             }
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -378,7 +392,7 @@ private struct BottomBar: View {
             status
                 .frame(maxWidth: .infinity)
 
-            Button { Task { await store.applySelectedSkin() } } label: {
+            Button { store.requestApply() } label: {
                 Label("应用到 iPhone", systemImage: "square.and.arrow.down")
             }
             .buttonStyle(.borderedProminent)
