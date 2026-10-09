@@ -1,0 +1,315 @@
+import Foundation
+import SwiftUI
+
+@MainActor
+final class WalletBloomStore: ObservableObject {
+    enum Phase: Equatable {
+        case launching
+        case onboarding
+        case scanning
+        case noCards
+        case failed(String)
+        case ready
+    }
+
+    @Published private(set) var phase: Phase = .launching
+    @Published private(set) var device: Device?
+    @Published private(set) var cards: [WalletCard] = []
+    @Published private(set) var skins: [Skin] = []
+    @Published private(set) var selectedCardID: WalletCard.ID?
+    @Published private(set) var scanProgress: Double = 0
+    @Published private(set) var notice: String?
+    @Published private var skinSelections: [WalletCard.ID: Skin.ID] = [:]
+
+    // 界面状态放在 store 中，菜单栏命令和界面按钮都可以触发。
+    enum InfoSheet: String, Identifiable {
+        case disclaimerAgreement
+        case disclaimer
+        case privacy
+        var id: String { rawValue }
+    }
+    @Published var infoSheet: InfoSheet?
+    @Published var isImporterPresented = false
+    @Published var renamingCard: WalletCard?
+
+    let coordinator: DefaultFlashCoordinator
+    let scanDuration: TimeInterval = 20
+    private let transport: any WalletTransport
+    private let scanner: any WalletCardScanner
+    private let skinCatalog: any SkinCatalog
+    private let libraryStore: LibraryStore
+    private let isToolchainAvailable: Bool
+    private var library: LibraryState
+    private var scanTask: Task<Void, Never>?
+
+    init(toolchain: AirliftToolchain = .resolved, skinCatalog: any SkinCatalog = PlaceholderSkinCatalog(), libraryStore: LibraryStore = LibraryStore()) {
+        let airlift = AirliftWalletTransport(toolchain: toolchain)
+        transport = airlift
+        scanner = airlift
+        coordinator = DefaultFlashCoordinator(engine: AirliftWalletEngine(toolchain: toolchain))
+        isToolchainAvailable = toolchain.isAvailable
+        self.skinCatalog = skinCatalog
+        self.libraryStore = libraryStore
+        library = libraryStore.load()
+    }
+
+    // MARK: - Selection
+
+    var selectedCard: WalletCard? { cards.first { $0.id == selectedCardID } }
+    var selectedCardIndex: Int { cards.firstIndex { $0.id == selectedCardID } ?? 0 }
+    var selectedSkin: Skin? { selectedCard.flatMap(skin(for:)) }
+
+    /// 卡片当前预览的皮肤：优先用户在本次会话中点选的，其次是已应用的，最后回落到第一个皮肤。
+    func skin(for card: WalletCard) -> Skin? {
+        let id = skinSelections[card.id] ?? card.currentSkinID
+        return skins.first { $0.id == id } ?? skins.first
+    }
+
+    func selectCard(_ id: WalletCard.ID) { selectedCardID = id }
+
+    func selectCard(offset: Int) {
+        guard !cards.isEmpty else { return }
+        let index = (selectedCardIndex + offset + cards.count) % cards.count
+        selectedCardID = cards[index].id
+    }
+
+    func selectSkin(_ skin: Skin) {
+        guard let id = selectedCardID else { return }
+        skinSelections[id] = skin.id
+    }
+
+    var libraryDirectory: URL { libraryStore.directory }
+
+    var canApply: Bool { phase == .ready && device != nil && selectedCard != nil && selectedSkin != nil && !coordinator.isRunning }
+    var canEditCards: Bool { phase == .ready && !coordinator.isRunning }
+    var canScan: Bool {
+        guard isToolchainAvailable, device != nil, scanTask == nil, !coordinator.isRunning else { return false }
+        return phase != .launching && phase != .scanning
+    }
+
+    // MARK: - Lifecycle
+
+    func start() async {
+        let catalog = (try? await skinCatalog.loadSkins()) ?? []
+        skins = catalog + library.importedSkins.map(libraryStore.skin(for:))
+        guard isToolchainAvailable else {
+            transition(to: .failed(WalletError.toolchainMissing.localizedDescription))
+            return
+        }
+        await refreshDevice()
+        if device != nil, await showKnownCards() { return }
+        transition(to: .onboarding)
+    }
+
+    /// 持续检测设备插拔：断开后回到引导页；在引导页连上且已有卡片时直接进入主界面。
+    /// 扫描、同步、或同步结果弹窗还开着时暂停，避免打断用户或和 device_helper 的其他调用抢占设备。
+    func monitorConnection() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(2))
+            guard isToolchainAvailable, coordinator.activeJob == nil else { continue }
+            switch phase {
+            case .onboarding, .ready, .noCards, .failed: break
+            case .launching, .scanning: continue
+            }
+            await refreshDevice()
+            if device == nil {
+                if phase != .onboarding { transition(to: .onboarding) }
+            } else if phase == .onboarding {
+                _ = await showKnownCards()
+            }
+        }
+    }
+
+    func showOnboarding() { transition(to: .onboarding) }
+
+    func retry() async {
+        guard isToolchainAvailable else { return }
+        await refreshDevice()
+        if device == nil { transition(to: .onboarding) } else { startScan() }
+    }
+
+    // MARK: - Scanning
+
+    func startScan() {
+        guard scanTask == nil, !coordinator.isRunning else { return }
+        scanTask = Task {
+            await performScan()
+            scanTask = nil
+        }
+    }
+
+    func cancelScan() { scanTask?.cancel() }
+
+    private func performScan() async {
+        await refreshDevice()
+        guard let device else {
+            transition(to: .onboarding)
+            return
+        }
+        notice = nil
+        scanProgress = 0
+        transition(to: .scanning)
+
+        let started = Date()
+        let ticker = Task { [weak self, scanDuration] in
+            while !Task.isCancelled {
+                self?.scanProgress = min(Date().timeIntervalSince(started) / scanDuration, 1)
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+        }
+        defer { ticker.cancel() }
+
+        do {
+            let hashes = try await scanner.scanCardHashes(on: device, duration: scanDuration)
+            guard !Task.isCancelled else { return leaveCancelledScan() }
+            // 扫描期间拔掉设备时，日志流会提前结束，结果不可信。
+            await refreshDevice()
+            guard self.device != nil else { return transition(to: .onboarding) }
+
+            let hidden = Set(library.hiddenCardHashes)
+            let known = Set(await knownCards().map(\.cardHash))
+            let newHashes = hashes.filter { !hidden.contains($0) && !known.contains($0) }
+            if !newHashes.isEmpty {
+                library.scannedCardHashes.append(contentsOf: newHashes)
+                saveLibrary()
+            }
+
+            let merged = await knownCards()
+            guard !merged.isEmpty else { return transition(to: .noCards) }
+            notice = newHashes.isEmpty ? "未发现新卡片，已显示之前保存的卡片" : "发现 \(newHashes.count) 张新卡片"
+            show(merged)
+        } catch {
+            guard !Task.isCancelled else { return leaveCancelledScan() }
+            await refreshDevice()
+            transition(to: self.device == nil ? .onboarding : .failed(error.localizedDescription))
+        }
+    }
+
+    private func leaveCancelledScan() {
+        transition(to: cards.isEmpty ? .onboarding : .ready)
+    }
+
+    // MARK: - Cards
+
+    /// 从列表中移除卡片（例如误识别的卡片），之后的读取和扫描都会忽略它。
+    func removeCard(_ card: WalletCard) {
+        library.hiddenCardHashes.append(card.cardHash)
+        library.scannedCardHashes.removeAll { $0 == card.cardHash }
+        saveLibrary()
+        cards = labeled(cards.filter { $0.id != card.id })
+        skinSelections[card.id] = nil
+        if selectedCardID == card.id { selectedCardID = cards.first?.id }
+        if cards.isEmpty { transition(to: .noCards) }
+    }
+
+    /// 重命名卡片；名称为空时恢复为默认的「卡片 N」。
+    func renameCard(_ card: WalletCard, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        library.cardNames[card.cardHash] = trimmed.isEmpty ? nil : String(trimmed.prefix(20))
+        saveLibrary()
+        cards = labeled(cards)
+    }
+
+    func hasCustomName(_ card: WalletCard) -> Bool { library.cardNames[card.cardHash] != nil }
+
+    // MARK: - Skins
+
+    func isImported(_ skin: Skin) -> Bool {
+        library.importedSkins.contains { $0.id == skin.id }
+    }
+
+    func importSkin(from url: URL) {
+        let id = UUID()
+        do {
+            let fileName = try libraryStore.importImage(from: url, id: id)
+            let record = LibraryState.ImportedSkin(id: id, name: url.deletingPathExtension().lastPathComponent, fileName: fileName)
+            library.importedSkins.append(record)
+            saveLibrary()
+            let skin = libraryStore.skin(for: record)
+            skins.append(skin)
+            selectSkin(skin)
+        } catch {
+            notice = "导入失败：\(error.localizedDescription)"
+        }
+    }
+
+    func deleteImportedSkin(_ skin: Skin) {
+        guard let index = library.importedSkins.firstIndex(where: { $0.id == skin.id }) else { return }
+        libraryStore.removeImage(named: library.importedSkins[index].fileName)
+        library.importedSkins.remove(at: index)
+        library.appliedSkinIDs = library.appliedSkinIDs.filter { $0.value != skin.id }
+        saveLibrary()
+        skins.removeAll { $0.id == skin.id }
+        skinSelections = skinSelections.filter { $0.value != skin.id }
+        for index in cards.indices where cards[index].currentSkinID == skin.id {
+            cards[index].currentSkinID = nil
+        }
+    }
+
+    func applySelectedSkin() async {
+        guard canApply, let card = selectedCard, let skin = selectedSkin, let device else { return }
+        notice = nil
+        await coordinator.submit(card: card, skin: skin, on: device)
+        guard coordinator.activeJob?.state == .completed else { return }
+        if let index = cards.firstIndex(where: { $0.id == card.id }) {
+            cards[index].currentSkinID = skin.id
+        }
+        library.appliedSkinIDs[card.cardHash] = skin.id
+        saveLibrary()
+        notice = "已应用「\(skin.name)」· 从后台关闭钱包 App 后重新打开即可看到"
+    }
+
+    // MARK: - Private
+
+    private func refreshDevice() async {
+        let discovered = (try? await transport.discoverDevices())?.first
+        if discovered != device { device = discovered }
+    }
+
+    /// 本次会话已有的卡片 + AirCard 保存的卡片 + WalletBloom 扫描保存的卡片，去掉用户移除的。
+    private func knownCards() async -> [WalletCard] {
+        var fromAirCard: [WalletCard] = []
+        if let device { fromAirCard = (try? await transport.readWalletCards(from: device)) ?? [] }
+        let hidden = Set(library.hiddenCardHashes)
+        var result = cards
+        var seen = Set(cards.map(\.cardHash))
+        for var card in fromAirCard + library.scannedCardHashes.map(WalletCard.detected(hash:))
+        where !hidden.contains(card.cardHash) && seen.insert(card.cardHash).inserted {
+            card.currentSkinID = library.appliedSkinIDs[card.cardHash]
+            result.append(card)
+        }
+        return result
+    }
+
+    private func showKnownCards() async -> Bool {
+        let known = await knownCards()
+        guard !known.isEmpty else { return false }
+        show(known)
+        return true
+    }
+
+    /// 统一分配显示名称：自定义名称优先，否则按列表顺序命名为「卡片 N」。
+    private func labeled(_ list: [WalletCard]) -> [WalletCard] {
+        list.enumerated().map { index, card in
+            var card = card
+            card.title = library.cardNames[card.cardHash] ?? "卡片 \(index + 1)"
+            return card
+        }
+    }
+
+    private func show(_ newCards: [WalletCard]) {
+        cards = labeled(newCards)
+        if selectedCard == nil { selectedCardID = newCards.first?.id }
+        transition(to: .ready)
+    }
+
+    private func saveLibrary() {
+        do { try libraryStore.save(library) } catch { notice = "本地数据保存失败：\(error.localizedDescription)" }
+    }
+
+    private func transition(to newPhase: Phase) {
+        // 离开主界面时关闭已结束的同步结果，避免回来时重新弹出。
+        if newPhase != .ready { coordinator.dismiss() }
+        withAnimation(.smooth(duration: 0.35)) { phase = newPhase }
+    }
+}

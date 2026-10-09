@@ -1,0 +1,12 @@
+# SwiftPM / Xcode
+.build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+# 打包产物与 AirCard helper 二进制（由 scripts/package_app.sh 生成或从 AirCard 构建）
+build/
+
+# macOS
+.DS_Store
