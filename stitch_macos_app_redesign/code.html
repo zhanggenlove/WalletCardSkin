@@ -7,14 +7,14 @@
 <!-- Center Stage 3D Visualizer Carousel Area -->
 <div class="relative w-full py-6 flex items-center justify-center overflow-visible">
 <!-- Background Ambient Glow Halo -->
-<div class="absolute w-[440px] h-[260px] rounded-[36px] bg-primary-container/30 blur-[64px] pointer-events-none transition-all duration-700 ease-out" id="ambient-glow"></div>
+<div class="absolute w-[440px] h-[260px] rounded-[36px] bg-primary-container/30 blur-[64px] pointer-events-none transition-all duration-700 ease-out" id="ambient-glow" style="background-color: rgba(211, 206, 203, 0.3);"></div>
 <!-- Left Chevron Carousel Control -->
 <button aria-label="上一个卡面" class="absolute left-4 z-20 w-10 h-10 rounded-full bg-surface-container-lowest/90 hover:bg-surface-container-lowest text-on-surface flex items-center justify-center shadow-lg transition-transform active:scale-90 hover:scale-105">
 <span class="material-symbols-outlined text-[20px]">chevron_left</span>
 </button>
 <!-- Active Apple Wallet Card 3D Stage -->
 <div class="relative z-10 perspective-[1200px]">
-<div class="relative w-[390px] h-[245px] rounded-[22px] p-6 text-on-primary shadow-2xl flex flex-col justify-between overflow-hidden cursor-pointer select-none transition-all duration-500 ease-out hover:-translate-y-1.5 hover:shadow-[0_24px_50px_rgba(0,112,235,0.3)] bg-gradient-to-tr from-[#0060d4] via-[#008fe6] to-[#00bfa5]" id="hero-card" style="transform: rotateX(0deg) rotateY(0deg) scale(1);">
+<div class="relative w-[390px] h-[245px] rounded-[22px] p-6 text-on-primary shadow-2xl flex flex-col justify-between overflow-hidden cursor-pointer select-none transition-all duration-500 ease-out hover:-translate-y-1.5 hover:shadow-[0_24px_50px_rgba(0,112,235,0.3)] bg-gradient-to-tr from-[#0060d4] via-[#008fe6] to-[#00bfa5]" id="hero-card" style="transform: rotateX(0deg) rotateY(0deg) scale(1); background: linear-gradient(135deg, rgb(211, 206, 203) 0%, rgb(206, 201, 197) 50%, rgb(197, 192, 188) 100%);">
 <!-- Card Specular Sheen Gradient Overlay -->
 <div class="absolute inset-0 bg-gradient-to-tr from-white/20 via-transparent to-white/10 opacity-70 pointer-events-none"></div>
 <div class="absolute -top-24 -right-24 w-60 h-60 bg-white/15 rounded-full blur-2xl pointer-events-none"></div>
@@ -93,45 +93,19 @@
 <div class="flex items-center justify-between">
 <div class="flex items-baseline gap-3">
 <h2 class="font-headline-lg text-headline-lg font-bold text-on-surface">选择皮肤</h2>
-<span class="font-label-md text-label-md text-on-surface-variant">点击皮肤即时预览到卡面 · 已载入 18 款精选材质</span>
+<span class="font-label-md text-label-md text-on-surface-variant">点击皮肤即时预览到卡面 · 授人以鱼不如授人予渔，您可以自定义您自己的卡片封面</span>
 </div>
 <!-- Search & Sorter -->
 <div class="flex items-center gap-3">
 <div class="relative flex items-center">
 <span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
-<input class="h-8 pl-9 pr-3 rounded-xl bg-surface-container text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest shadow-sm w-56 transition-all" placeholder="搜索卡面、插画或色系..." type="text">
+
 </div>
-<div class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-surface-container-high/60 text-on-surface font-label-md text-label-md cursor-pointer hover:bg-surface-container-high transition-colors">
-<span class="">排序: 最受欢迎</span>
-<span class="material-symbols-outlined text-[16px] text-outline">expand_more</span>
-</div>
+
 </div>
 </div>
 <!-- Tag Filter Pills & Quick Toggles -->
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-1.5 overflow-x-auto pb-1">
-<button class="px-space-md py-1 rounded-full bg-primary text-on-primary font-label-md text-label-md shadow-sm">全部 (18)</button>
-<button class="px-space-md py-1 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md transition-colors">极光渐变</button>
-<button class="px-space-md py-1 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md transition-colors">暗夜霓虹</button>
-<button class="px-space-md py-1 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md transition-colors">纯净留白</button>
-<button class="px-space-md py-1 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md transition-colors">手绘插画</button>
-<button class="px-space-md py-1 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md transition-colors">金属拉丝</button>
-<button class="px-space-md py-1 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md transition-colors">我的收藏</button>
-</div>
-<!-- Micro Parameters Quick Sliders -->
-<div class="flex items-center gap-4 text-on-surface-variant font-label-sm text-label-sm">
-<div class="flex items-center gap-2">
-<span class="">卡面光泽:</span>
-<input class="w-16 accent-primary h-1 bg-surface-container-highest rounded-lg cursor-pointer" max="100" min="0" type="range" value="85">
-<span class="font-mono text-on-surface">85%</span>
-</div>
-<div class="flex items-center gap-2">
-<span class="">磨砂噪点:</span>
-<input class="w-16 accent-primary h-1 bg-surface-container-highest rounded-lg cursor-pointer" max="100" min="0" type="range" value="12">
-<span class="font-mono text-on-surface">12%</span>
-</div>
-</div>
-</div>
+
 </div>
 <!-- 5-Column Fluid Skin Selection Grid -->
 <div class="grid grid-cols-5 gap-gutter w-full">
@@ -162,7 +136,7 @@
 </div>
 </div>
 <!-- Card 3: Minimal -->
-<div class="skin-tile group flex flex-col rounded-xl overflow-hidden bg-surface-container-lowest shadow-sm hover:shadow-md cursor-pointer transition-all duration-200" data-skin="minimal">
+<div class="skin-tile group flex flex-col rounded-xl overflow-hidden bg-surface-container-lowest shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 ring-2 ring-primary" data-skin="minimal">
 <div class="h-28 w-full bg-gradient-to-tr from-[#d3cecb] via-[#cec9c5] to-[#c5c0bc] p-2.5 flex justify-end items-start relative overflow-hidden">
 <span class="opacity-0 group-hover:opacity-100 transition-opacity px-2 py-0.5 rounded-full bg-black/30 backdrop-blur-md text-white font-label-sm text-[10px]">预览</span>
 </div>
@@ -175,7 +149,7 @@
 </div>
 </div>
 <!-- Card 4: Aurora (ACTIVE / SELECTED) -->
-<div class="skin-tile active-skin group flex flex-col rounded-xl overflow-hidden bg-surface-container-lowest shadow-md cursor-pointer transition-all duration-200 ring-2 ring-primary" data-skin="aurora">
+<div class="skin-tile active-skin group flex flex-col rounded-xl overflow-hidden bg-surface-container-lowest shadow-md cursor-pointer transition-all duration-200" data-skin="aurora">
 <div class="h-28 w-full bg-gradient-to-tr from-[#0060d4] via-[#008fe6] to-[#00bfa5] p-2.5 flex justify-between items-start relative overflow-hidden">
 <span class="px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-sm text-[10px] font-semibold flex items-center gap-1 shadow-sm">
 <span class="material-symbols-outlined text-[12px]">check</span> 当前选用
@@ -437,5 +411,7 @@
     })();
   </script>
 </div></main><footer class="w-full bg-surface-container-low/60 backdrop-blur-md py-space-md shadow-[inset_0_1px_0_rgba(0,0,0,0.03)]"><div class="w-full px-margin flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant"><span class="">WalletBloom for macOS • 独立开发的第三方工具，与 Apple 及任何发卡机构无关&nbsp;</span><span class="">Version 2.4.0 (Build 2408)</span></div></footer>
+
+
 
 </body></html>
