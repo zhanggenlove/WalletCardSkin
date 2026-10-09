@@ -21,7 +21,11 @@ struct ContentView: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button { store.infoSheet = .privacy } label: {
+                    Label("隐私与安全", systemImage: "hand.raised")
+                }
+                .help("隐私与安全：WalletBloom 不会上传或读取你的支付信息")
                 ConnectionBadge(store: store)
             }
         }
@@ -94,16 +98,14 @@ private struct ConnectionBadge: View {
     }
 
     private var badge: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 6) {
             Circle()
                 .fill(device == nil ? Color.secondary.opacity(0.6) : Color.green)
-                .frame(width: 6, height: 6)
+                .frame(width: 7, height: 7)
             Text(device?.name ?? "未连接设备")
                 .foregroundStyle(device == nil ? .secondary : .primary)
         }
-        .font(.callout.weight(.medium))
-        .padding(.horizontal, 12)
-        .frame(height: 28)
-        .background(Color.primary.opacity(0.05), in: Capsule())
+        .font(.callout)
+        .padding(.horizontal, 8)
     }
 }
