@@ -37,9 +37,6 @@ protocol WalletEngine {
     func flash(card: WalletCard, imageURL: URL, on device: Device, progress: @escaping @Sendable (FlashProgress) -> Void) async throws
 }
 
-protocol SkinCatalog {
-    func loadSkins() async throws -> [Skin]
-}
 
 @MainActor
 protocol FlashCoordinator {

@@ -22,8 +22,13 @@ struct CardFace: View {
                     .background(.black.opacity(0.28), in: Capsule())
                     .padding(12)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .shadow(color: .black.opacity(0.28), radius: 14, y: 8)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            // 顶部一圈细微高光，模拟实体卡片的边缘。
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.14), radius: 12, y: 8)
     }
 }
 
@@ -40,20 +45,6 @@ struct SkinArtworkView: View {
                 Image(nsImage: image).resizable().scaledToFill()
             } else {
                 placeholder
-            }
-        case .remoteImage(let url):
-            AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                case .failure:
-                    placeholder.overlay {
-                        Image(systemName: "exclamationmark.triangle").foregroundStyle(.secondary)
-                    }
-                    .help("皮肤图片加载失败，请检查网络连接")
-                default:
-                    placeholder.overlay { ProgressView().controlSize(.small) }
-                }
             }
         case nil:
             placeholder

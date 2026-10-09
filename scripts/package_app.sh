@@ -28,6 +28,8 @@ rm -rf "${APP_ROOT}"
 mkdir -p "${CONTENTS_ROOT}/MacOS" "${CONTENTS_ROOT}/Frameworks" "${BIN_ROOT}"
 cp "${PROJECT_ROOT}/Resources/Info.plist" "${CONTENTS_ROOT}/Info.plist"
 cp "${PROJECT_ROOT}/Resources/AppIcon.icns" "${RESOURCES_ROOT}/AppIcon.icns"
+mkdir -p "${RESOURCES_ROOT}/BuiltInSkins"
+find "${PROJECT_ROOT}/Resources/BuiltInSkins" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.heic' \) -exec cp {} "${RESOURCES_ROOT}/BuiltInSkins/" \;
 ditto "${SPARKLE_FRAMEWORK}" "${CONTENTS_ROOT}/Frameworks/Sparkle.framework"
 cp "${PROJECT_ROOT}/.build/release/WalletBloom" "${CONTENTS_ROOT}/MacOS/WalletBloom"
 cp "${AIR_CARD_BIN_ROOT}/device_helper" "${BIN_ROOT}/device_helper"

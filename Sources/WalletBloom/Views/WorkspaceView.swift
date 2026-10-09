@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 主界面：顶部卡片堆叠、中间皮肤库、底部操作栏。
+/// 主界面（参照 stitch_macos_app_redesign）：顶部卡面展台、皮肤网格、悬浮操作栏和页脚。
 struct WorkspaceView: View {
     @ObservedObject var store: WalletBloomStore
     @ObservedObject var coordinator: DefaultFlashCoordinator
@@ -9,15 +9,27 @@ struct WorkspaceView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            CardCarousel(store: store)
-                .padding(.horizontal, 28)
-                .padding(.top, 14)
-                .padding(.bottom, 16)
-            Divider()
-            SkinLibrary(store: store)
-            BottomBar(store: store)
+            CardStage(store: store)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    GalleryHeader()
+                    SkinGallery(store: store)
+                    InfoStrip { store.infoSheet = .privacy }
+                }
+                .padding(.horizontal, 32)
+                .padding(.top, 4)
+                // 给悬浮操作栏留出空间，最后一行皮肤不会被遮住。
+                .padding(.bottom, 96)
+            }
         }
-        .searchable(text: $store.skinSearchText, placement: .toolbar, prompt: "搜索皮肤")
+        .overlay(alignment: .bottom) {
+            VStack(spacing: 10) {
+                StatusCapsule(store: store)
+                ActionDeck(store: store)
+            }
+            .padding(.bottom, 14)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) { FooterBar() }
         .fileImporter(isPresented: $store.isImporterPresented, allowedContentTypes: [.png, .jpeg, .heic, .tiff]) { result in
             if case .success(let url) = result { store.beginImport(from: url) }
         }
@@ -43,161 +55,57 @@ struct WorkspaceView: View {
     }
 }
 
-// MARK: - Sync sheet
+// MARK: - Card stage
 
-private struct SyncSheet: View {
-    @ObservedObject var coordinator: DefaultFlashCoordinator
-    let onRetry: () -> Void
-
-    var body: some View {
-        if let job = coordinator.activeJob {
-            VStack(spacing: 20) {
-                CardFace(card: job.card, skin: job.skin)
-                    .frame(width: 230)
-                    .overlay(alignment: .topTrailing) { resultBadge(for: job.state) }
-                    .padding(.top, 6)
-
-                VStack(spacing: 6) {
-                    Text(title(for: job.state))
-                        .font(.title3.weight(.semibold))
-                    Text(job.message)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
-                }
-
-                switch job.state {
-                case .preparing, .transferring:
-                    VStack(spacing: 8) {
-                        ProgressView(value: job.progress)
-                            .animation(.easeInOut(duration: 0.4), value: job.progress)
-                        HStack {
-                            Text("同步期间请勿断开数据线或锁定 iPhone")
-                            Spacer()
-                            Text("\(Int(job.progress * 100))%").monospacedDigit()
-                        }
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                    }
-                case .completed:
-                    VStack(spacing: 16) {
-                        RefreshWalletTip()
-                        Button("完成") { coordinator.dismiss() }
-                            .buttonStyle(.borderedProminent)
-                            .keyboardShortcut(.defaultAction)
-                            .controlSize(.large)
-                    }
-                case .failed:
-                    HStack(spacing: 12) {
-                        Button("关闭") { coordinator.dismiss() }
-                            .keyboardShortcut(.cancelAction)
-                        Button("重试", action: onRetry)
-                            .buttonStyle(.borderedProminent)
-                            .keyboardShortcut(.defaultAction)
-                    }
-                    .controlSize(.large)
-                }
-            }
-            .padding(28)
-            .frame(width: 420)
-            .interactiveDismissDisabled(job.isRunning)
-            .animation(.smooth(duration: 0.3), value: job.state)
-        }
-    }
-
-    private func title(for state: FlashJob.State) -> String {
-        switch state {
-        case .preparing, .transferring: return "正在同步到 iPhone"
-        case .completed: return "同步完成"
-        case .failed: return "同步失败"
-        }
-    }
-
-    @ViewBuilder
-    private func resultBadge(for state: FlashJob.State) -> some View {
-        switch state {
-        case .completed:
-            Image(systemName: "checkmark.circle.fill")
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, .green)
-                .font(.system(size: 34))
-                .offset(x: 12, y: -12)
-                .transition(.scale.combined(with: .opacity))
-        case .failed:
-            Image(systemName: "exclamationmark.circle.fill")
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, .red)
-                .font(.system(size: 34))
-                .offset(x: 12, y: -12)
-                .transition(.scale.combined(with: .opacity))
-        case .preparing, .transferring:
-            EmptyView()
-        }
-    }
-}
-
-/// 同步完成后提示用户重启钱包 App，否则钱包会继续显示内存中的旧卡面。
-private struct RefreshWalletTip: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("还差一步就能看到新卡面", systemImage: "lightbulb.fill")
-                .font(.headline)
-                .symbolRenderingMode(.multicolor)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("1. 在 iPhone 上从屏幕底部上滑并停顿，打开后台 App 列表（有主屏幕按钮的机型：连按两下主屏幕按钮）")
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("2. 找到「钱包」，向上滑动将其关闭")
-                Text("3. 重新打开钱包，即可看到新卡面（仍是旧卡面时，可重启 iPhone）")
-            }
-            .font(.callout)
-            .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-}
-
-// MARK: - Card carousel
-
-private struct CardCarousel: View {
+/// 卡面展台：居中展示当前卡片，两侧悬浮圆形翻页按钮，下方页码。
+private struct CardStage: View {
     @ObservedObject var store: WalletBloomStore
     @GestureState private var dragOffset: CGFloat = 0
     @State private var draftName = ""
+    @Environment(\.colorScheme) private var colorScheme
 
-    private let cardWidth: CGFloat = 250
+    private let cardWidth: CGFloat = 380
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 16) {
-                navigationButton("chevron.left", key: .leftArrow, help: "上一张卡片") { store.selectCard(offset: -1) }
-
-                ZStack {
-                    ForEach(Array(store.cards.enumerated()), id: \.element.id) { index, card in
-                        CardFace(card: card, skin: store.skin(for: card))
-                            .frame(width: cardWidth)
-                            .modifier(StackPlacement(offset: index - store.selectedCardIndex, dragOffset: dragOffset))
-                            .onTapGesture { store.selectCard(card.id) }
-                            .contextMenu { menu(for: card) }
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(card.title)
-                            .accessibilityValue(card.id == store.selectedCardID ? "当前卡片" : "")
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityHidden(abs(index - store.selectedCardIndex) > 2)
-                            .help("右键可重命名卡片，或移除误识别的卡片")
-                    }
+        VStack(spacing: 18) {
+            ZStack {
+                ForEach(Array(store.cards.enumerated()), id: \.element.id) { index, card in
+                    CardFace(card: card, skin: store.skin(for: card))
+                        .frame(width: cardWidth)
+                        // 展台上的卡片带一层蓝色投影，模拟钱包卡片的悬浮感。
+                        .shadow(color: Color.accentColor.opacity(0.22), radius: 24, y: 18)
+                        .modifier(StagePlacement(offset: index - store.selectedCardIndex, dragOffset: dragOffset))
+                        .onTapGesture { store.selectCard(card.id) }
+                        .contextMenu { menu(for: card) }
+                        .help("右键可重命名卡片，或移除误识别的卡片")
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(card.title)
+                        .accessibilityValue(card.id == store.selectedCardID ? "当前卡片" : "")
+                        .accessibilityHidden(card.id != store.selectedCardID)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: cardWidth / WalletCard.artworkAspectRatio + 16)
-                .contentShape(Rectangle())
-                .gesture(swipeGesture)
-                .animation(.spring(response: 0.45, dampingFraction: 0.82), value: store.selectedCardID)
-
-                navigationButton("chevron.right", key: .rightArrow, help: "下一张卡片") { store.selectCard(offset: 1) }
             }
+            .frame(width: cardWidth, height: cardWidth / WalletCard.artworkAspectRatio)
+            .contentShape(Rectangle())
+            .gesture(swipeGesture)
+            .animation(.spring(response: 0.5, dampingFraction: 0.84), value: store.selectedCardID)
 
             PageIndicator(count: store.cards.count, index: store.selectedCardIndex)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 28)
+        .padding(.bottom, 26)
+        .overlay {
+            HStack {
+                ChevronButton(systemImage: "chevron.left", key: .leftArrow, label: "上一张卡片") { store.selectCard(offset: -1) }
+                Spacer()
+                ChevronButton(systemImage: "chevron.right", key: .rightArrow, label: "下一张卡片") { store.selectCard(offset: 1) }
+            }
+            .padding(.horizontal, 24)
+            .disabled(store.cards.count < 2)
+        }
+        .background {
+            // 展台柔光：浅色模式下是一片白色光晕，深色模式下只轻微提亮。
+            RadialGradient(colors: [Color.white.opacity(colorScheme == .dark ? 0.06 : 0.9), .clear], center: .center, startRadius: 40, endRadius: 520)
         }
         .onChange(of: store.renamingCard) { _, card in
             if let card { draftName = store.hasCustomName(card) ? card.title : "" }
@@ -225,41 +133,53 @@ private struct CardCarousel: View {
         DragGesture(minimumDistance: 12)
             .updating($dragOffset) { value, state, _ in state = value.translation.width }
             .onEnded { value in
-                if value.translation.width < -50 { store.selectCard(offset: 1) }
-                if value.translation.width > 50 { store.selectCard(offset: -1) }
+                if value.translation.width < -60 { store.selectCard(offset: 1) }
+                if value.translation.width > 60 { store.selectCard(offset: -1) }
             }
-    }
-
-    private func navigationButton(_ systemImage: String, key: KeyEquivalent, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage).fontWeight(.semibold)
-        }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.circle)
-        .controlSize(.large)
-        .keyboardShortcut(key, modifiers: [])
-        .disabled(store.cards.count < 2)
-        .help(help)
-        .accessibilityLabel(help)
     }
 }
 
-/// 根据与当前卡片的距离计算堆叠位置：当前卡在最前，两侧的卡片缩小、压暗并露出一角。
-private struct StackPlacement: ViewModifier {
+/// 当前卡片居中；切换时相邻卡片从两侧滑入、淡入，拖动时当前卡片随手势轻微倾斜。
+private struct StagePlacement: ViewModifier {
     let offset: Int
     let dragOffset: CGFloat
 
     func body(content: Content) -> some View {
-        let distance = abs(offset)
-        let depth = CGFloat(min(distance, 2))
+        let isCurrent = offset == 0
         let direction = CGFloat(offset.signum())
         content
-            .scaleEffect(1 - depth * 0.07)
-            .brightness(offset == 0 ? 0 : -0.12)
-            .offset(x: direction * depth * 24 + (offset == 0 ? dragOffset * 0.35 : 0), y: depth * 8)
-            .opacity(distance > 2 ? 0 : (offset == 0 ? 1 : 0.6))
-            .zIndex(Double(100 - distance))
-            .allowsHitTesting(distance <= 2)
+            .rotation3DEffect(.degrees(isCurrent ? Double(dragOffset) / 18 : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+            .scaleEffect(isCurrent ? 1 : 0.9)
+            .offset(x: isCurrent ? dragOffset * 0.4 : direction * 90)
+            .opacity(isCurrent ? 1 : 0)
+            .zIndex(isCurrent ? 1 : 0)
+            .allowsHitTesting(isCurrent)
+    }
+}
+
+private struct ChevronButton: View {
+    let systemImage: String
+    let key: KeyEquivalent
+    let label: String
+    let action: () -> Void
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.primary)
+                .frame(width: 36, height: 36)
+                .background(.regularMaterial, in: Circle())
+                .overlay { Circle().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
+                .shadow(color: .black.opacity(0.1), radius: 8, y: 3)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.35)
+        .keyboardShortcut(key, modifiers: [])
+        .help(label)
+        .accessibilityLabel(label)
     }
 }
 
@@ -271,8 +191,8 @@ private struct PageIndicator: View {
         HStack(spacing: 6) {
             ForEach(0..<count, id: \.self) { page in
                 Capsule()
-                    .fill(page == index ? Color.accentColor : Color.secondary.opacity(0.35))
-                    .frame(width: page == index ? 18 : 7, height: 7)
+                    .fill(page == index ? Color.accentColor : Color.primary.opacity(0.2))
+                    .frame(width: page == index ? 16 : 6, height: 6)
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: index)
@@ -281,69 +201,48 @@ private struct PageIndicator: View {
     }
 }
 
-// MARK: - Skin library
+// MARK: - Skin gallery
 
-private struct SkinLibrary: View {
+private struct GalleryHeader: View {
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text("选择皮肤")
+                .font(.title.weight(.bold))
+            Text("点击皮肤即时预览到卡面 · 授人以鱼不如授人以渔，用你自己的图片制作专属卡面")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+    }
+}
+
+private struct SkinGallery: View {
     @ObservedObject var store: WalletBloomStore
 
-    private let columns = [GridItem(.adaptive(minimum: 180), spacing: 14)]
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 5)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                Text("选择皮肤").font(.headline)
-                Spacer()
-                Picker("分类", selection: $store.skinFilter) {
-                    Text("全部").tag(WalletBloomStore.SkinFilter.all)
-                    Label("收藏", systemImage: "star").tag(WalletBloomStore.SkinFilter.favorites)
-                    ForEach(store.skinCategories, id: \.self) { category in
-                        Text(category).tag(WalletBloomStore.SkinFilter.category(category))
-                    }
+        LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(store.skins) { skin in
+                SkinTile(
+                    skin: skin,
+                    isSelected: store.selectedSkin?.id == skin.id,
+                    isApplied: store.selectedCard?.currentSkinID == skin.id
+                ) {
+                    store.selectSkin(skin)
                 }
-                .labelsHidden()
-                .fixedSize()
-                .help("按分类筛选皮肤")
-            }
-            .padding(.horizontal, 28)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
-
-            if store.visibleSkins.isEmpty {
-                emptyState
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(store.visibleSkins) { skin in
-                            SkinTile(
-                                skin: skin,
-                                isSelected: store.selectedSkin?.id == skin.id,
-                                isApplied: store.selectedCard?.currentSkinID == skin.id,
-                                isFavorite: store.isFavorite(skin)
-                            ) {
-                                store.selectSkin(skin)
-                            }
-                            .contextMenu {
-                                Button(store.isFavorite(skin) ? "取消收藏" : "收藏", systemImage: store.isFavorite(skin) ? "star.slash" : "star") {
-                                    store.toggleFavorite(skin)
-                                }
-                                if store.isImported(skin) {
-                                    Divider()
-                                    Button("删除皮肤", systemImage: "trash", role: .destructive) {
-                                        store.deleteImportedSkin(skin)
-                                    }
-                                }
-                            }
+                .contextMenu {
+                    if store.isImported(skin) {
+                        Button("删除皮肤", systemImage: "trash", role: .destructive) {
+                            store.deleteImportedSkin(skin)
                         }
                     }
-                    .padding(.horizontal, 28)
-                    .padding(.top, 4)
-                    .padding(.bottom, 20)
                 }
             }
+            CreateSkinTile { store.isImporterPresented = true }
         }
-        .frame(maxHeight: .infinity)
-        // 裁剪弹窗挂在皮肤库上，避免和挂在主界面上的同步弹窗共用同一个视图。
+        // 裁剪弹窗挂在皮肤网格上，避免和挂在主界面上的同步弹窗共用同一个视图。
         .sheet(item: $store.pendingImport) { pending in
             ImageCropView(pending: pending) {
                 store.pendingImport = nil
@@ -354,125 +253,264 @@ private struct SkinLibrary: View {
     }
 }
 
-private extension SkinLibrary {
-    @ViewBuilder
-    var emptyState: some View {
-        if !store.skinSearchText.trimmingCharacters(in: .whitespaces).isEmpty {
-            ContentUnavailableView.search(text: store.skinSearchText)
-        } else if store.skinFilter == .favorites {
-            ContentUnavailableView("还没有收藏的皮肤", systemImage: "star", description: Text("在皮肤上右键选择「收藏」，就能在这里快速找到。"))
-        } else {
-            ContentUnavailableView("这个分类下没有皮肤", systemImage: "square.grid.2x2")
-        }
-    }
+/// 皮肤格子的公共骨架：上方 2:1 的图案区，下方固定高度的文字区，保证所有格子等高。
+private enum TileMetrics {
+    static let cornerRadius: CGFloat = 14
+    static let artworkAspectRatio: CGFloat = 2
+    static let labelHeight: CGFloat = 58
+    static let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
 }
 
 private struct SkinTile: View {
     let skin: Skin
     let isSelected: Bool
     let isApplied: Bool
-    let isFavorite: Bool
     let action: () -> Void
     @State private var isHovering = false
-
-    private let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 0) {
                 Color.clear
-                    .frame(height: 72)
+                    .aspectRatio(TileMetrics.artworkAspectRatio, contentMode: .fit)
                     .overlay { SkinArtworkView(artwork: skin.artwork) }
                     .clipped()
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(skin.name).font(.callout.weight(.semibold))
-                        Spacer(minLength: 0)
-                        if isFavorite {
-                            Image(systemName: "star.fill")
-                                .foregroundStyle(.yellow)
-                                .help("已收藏")
-                        }
+                    .overlay(alignment: .topLeading) {
                         if isApplied {
-                            Image(systemName: "checkmark.seal.fill")
-                                .foregroundStyle(.green)
-                                .help("当前卡片已应用该皮肤")
+                            Label("当前选用", systemImage: "checkmark")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tint)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.regularMaterial, in: Capsule())
+                                .padding(10)
                         }
                     }
-                    Text(skin.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(skin.name)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(isApplied ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                        Text(skin.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .lineLimit(1)
+                    Spacer(minLength: 0)
+                    if isApplied {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.tint)
+                    }
                 }
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .frame(height: TileMetrics.labelHeight)
             }
             .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(shape)
+            .clipShape(TileMetrics.shape)
             .overlay {
-                shape.strokeBorder(isSelected ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: isSelected ? 2.5 : 0.5)
+                TileMetrics.shape.strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: isSelected ? 2 : 1)
             }
-            .shadow(color: isSelected ? Color.accentColor.opacity(0.25) : .black.opacity(0.06), radius: isSelected ? 8 : 3, y: 2)
-            .contentShape(shape)
+            // 选中时外圈一道浅蓝光晕。
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: TileMetrics.cornerRadius + 3, style: .continuous)
+                        .strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 3)
+                        .padding(-3)
+                }
+            }
+            .shadow(color: .black.opacity(isHovering ? 0.1 : 0.04), radius: isHovering ? 12 : 4, y: isHovering ? 6 : 2)
+            .contentShape(TileMetrics.shape)
         }
         .buttonStyle(.plain)
-        .offset(y: isHovering ? -2 : 0)
-        .animation(.easeOut(duration: 0.15), value: isHovering)
+        .scaleEffect(isHovering ? 1.015 : 1)
+        .animation(.easeOut(duration: 0.18), value: isHovering)
         .onHover { isHovering = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(skin.subtitle.isEmpty ? skin.name : "\(skin.name)，\(skin.subtitle)")
-        .accessibilityValue([isSelected ? "正在预览" : nil, isApplied ? "已应用到当前卡片" : nil, isFavorite ? "已收藏" : nil].compactMap { $0 }.joined(separator: "，"))
+        .accessibilityValue([isSelected ? "正在预览" : nil, isApplied ? "已应用到当前卡片" : nil].compactMap { $0 }.joined(separator: "，"))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
-// MARK: - Bottom bar
+/// 网格最后一格：引导用户用自己的图片制作卡面。
+private struct CreateSkinTile: View {
+    let action: () -> Void
+    @State private var isHovering = false
 
-private struct BottomBar: View {
-    @ObservedObject var store: WalletBloomStore
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 0) {
+                Color.clear.aspectRatio(TileMetrics.artworkAspectRatio, contentMode: .fit)
+                Color.clear.frame(height: TileMetrics.labelHeight)
+            }
+            .overlay {
+                VStack(spacing: 8) {
+                    Image(systemName: "photo.badge.plus")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(.tint)
+                        .frame(width: 46, height: 46)
+                        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                    Text("制作专属卡面")
+                        .font(.callout.weight(.semibold))
+                    Text("导入本地图片，裁剪成卡面")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Label("导入图片", systemImage: "plus")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tint)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.accentColor.opacity(0.12), in: Capsule())
+                }
+            }
+            .background(Color.primary.opacity(isHovering ? 0.06 : 0.035), in: TileMetrics.shape)
+            .overlay { TileMetrics.shape.strokeBorder(Color.primary.opacity(0.08), style: StrokeStyle(lineWidth: 1, dash: [5, 4])) }
+            .contentShape(TileMetrics.shape)
+        }
+        .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.18), value: isHovering)
+        .onHover { isHovering = $0 }
+        .help("导入本地图片作为卡面（⌘O）")
+        .accessibilityLabel("制作专属卡面，导入本地图片")
+    }
+}
+
+private struct InfoStrip: View {
+    let onLearnMore: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
+            Image(systemName: "checkmark.shield")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.tint)
+            Text("为 iPhone 钱包中的卡片更换皮肤。所有操作通过数据线在本机完成，不上传任何数据。")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Button(action: onLearnMore) {
+                HStack(spacing: 3) {
+                    Text("隐私与安全")
+                    Image(systemName: "arrow.up.right")
+                }
+            }
+            .buttonStyle(.link)
+            .font(.callout)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+// MARK: - Floating action deck
+
+/// 悬浮在窗口底部的胶囊操作栏。
+private struct ActionDeck: View {
+    @ObservedObject var store: WalletBloomStore
+
+    var body: some View {
+        HStack(spacing: 8) {
             Button { store.isImporterPresented = true } label: {
-                Label("导入图片", systemImage: "plus")
+                HStack(spacing: 6) {
+                    Label("导入图片", systemImage: "plus")
+                    ShortcutHint("⌘O")
+                }
             }
             .help("使用自己的图片作为卡面")
+
+            Divider().frame(height: 20)
 
             Button { store.startScan() } label: {
                 Label("重新扫描", systemImage: "arrow.clockwise")
             }
-            .help("重新扫描钱包中的卡片")
-
-            status
-                .frame(maxWidth: .infinity)
+            .disabled(!store.canScan)
+            .help("重新扫描钱包中的卡片（⌘R）")
 
             Button { store.requestApply() } label: {
-                Label("应用到 iPhone", systemImage: "square.and.arrow.down")
+                HStack(spacing: 6) {
+                    Label("应用到 iPhone", systemImage: "square.and.arrow.down")
+                    ShortcutHint("⌘↩", onAccent: true)
+                }
             }
             .buttonStyle(.borderedProminent)
             .disabled(!store.canApply)
-            .help("把当前皮肤写入 iPhone 钱包（⌘↩）")
+            .help("把当前皮肤写入 iPhone 钱包")
         }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
         .controlSize(.large)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
+        .padding(6)
+        .background(.regularMaterial, in: Capsule())
+        .overlay { Capsule().strokeBorder(Color.primary.opacity(0.06), lineWidth: 1) }
+        .shadow(color: .black.opacity(0.12), radius: 18, y: 8)
+    }
+}
+
+private struct ShortcutHint: View {
+    let text: String
+    var onAccent = false
+
+    init(_ text: String, onAccent: Bool = false) {
+        self.text = text
+        self.onAccent = onAccent
     }
 
-    @ViewBuilder
-    private var status: some View {
-        if let message = store.compatibility.message {
-            Label(message, systemImage: store.compatibility.isBlocking ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
-                .font(.callout)
-                .foregroundStyle(store.compatibility.isBlocking ? .red : .orange)
-                .lineLimit(1)
-        } else if let notice = store.notice {
-            Text(notice)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+    var body: some View {
+        Text(text)
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(onAccent ? AnyShapeStyle(.white.opacity(0.7)) : AnyShapeStyle(.tertiary))
+            .accessibilityHidden(true)
+    }
+}
+
+/// 操作栏上方的轻提示：兼容性警告常驻，普通提示几秒后自动消失。
+private struct StatusCapsule: View {
+    @ObservedObject var store: WalletBloomStore
+
+    var body: some View {
+        Group {
+            if let message = store.compatibility.message {
+                Label(message, systemImage: store.compatibility.isBlocking ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(store.compatibility.isBlocking ? .red : .orange)
+            } else if let notice = store.notice {
+                Text(notice)
+                    .foregroundStyle(.secondary)
+                    .task(id: notice) {
+                        try? await Task.sleep(for: .seconds(6))
+                        store.clearNotice(notice)
+                    }
+            }
         }
+        .font(.callout)
+        .lineLimit(1)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .background(.regularMaterial, in: Capsule())
+        .overlay { Capsule().strokeBorder(Color.primary.opacity(0.06), lineWidth: 1) }
+        .opacity(store.compatibility.message == nil && store.notice == nil ? 0 : 1)
+        .animation(.smooth(duration: 0.25), value: store.notice)
+    }
+}
+
+private struct FooterBar: View {
+    private var version: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let short = info["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info["CFBundleVersion"] as? String ?? "—"
+        return "版本 \(short)（\(build)）"
+    }
+
+    var body: some View {
+        HStack {
+            Text("WalletBloom for macOS · 独立开发的第三方工具，与 Apple 及任何发卡机构无关")
+            Spacer()
+            Text(version)
+        }
+        .font(.caption)
+        .foregroundStyle(.tertiary)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
     }
 }

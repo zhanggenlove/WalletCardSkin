@@ -39,15 +39,6 @@ final class WalletBloomStore: ObservableObject {
     @Published var renamingCard: WalletCard?
     @Published var isConfirmingApply = false
     @Published var pendingImport: PendingImport?
-    @Published var skinSearchText = ""
-    @Published var skinFilter: SkinFilter = .all
-
-    enum SkinFilter: Hashable {
-        case all
-        case favorites
-        case category(String)
-    }
-
     struct PendingImport: Identifiable {
         let id = UUID()
         let name: String
@@ -61,7 +52,6 @@ final class WalletBloomStore: ObservableObject {
     let scanDuration: TimeInterval = 30
     private let transport: any WalletTransport
     private let scanner: any WalletCardScanner
-    private let skinCatalog: any SkinCatalog
     private let libraryStore: LibraryStore
     private let isToolchainAvailable: Bool
     private var library: LibraryState
@@ -70,15 +60,12 @@ final class WalletBloomStore: ObservableObject {
     private var scanJob: Task<[String], Error>?
     private var scanFoundHashes = Set<String>()
 
-    init(toolchain: AirliftToolchain = .resolved, skinCatalog: (any SkinCatalog)? = nil, libraryStore: LibraryStore = LibraryStore()) {
+    init(toolchain: AirliftToolchain = .resolved, libraryStore: LibraryStore = LibraryStore()) {
         let airlift = AirliftWalletTransport(toolchain: toolchain)
         transport = airlift
         scanner = airlift
         coordinator = DefaultFlashCoordinator(engine: AirliftWalletEngine(toolchain: toolchain))
         isToolchainAvailable = toolchain.isAvailable
-        self.skinCatalog = skinCatalog ?? CombinedSkinCatalog(remote: RemoteSkinCatalog.configuredURL.map {
-            RemoteSkinCatalog(manifestURL: $0, cacheURL: libraryStore.directory.appendingPathComponent("Catalog/manifest.json"))
-        })
         self.libraryStore = libraryStore
         library = libraryStore.load()
     }
@@ -110,6 +97,11 @@ final class WalletBloomStore: ObservableObject {
 
     var libraryDirectory: URL { libraryStore.directory }
 
+    /// 自动收起提示时调用；只清除仍是同一条的提示，避免误删刚出现的新提示。
+    func clearNotice(_ message: String) {
+        if notice == message { notice = nil }
+    }
+
     var canSwitchDevice: Bool { devices.count > 1 && phase != .scanning && !coordinator.isRunning }
 
     func selectDevice(_ newDevice: Device) {
@@ -130,8 +122,7 @@ final class WalletBloomStore: ObservableObject {
     // MARK: - Lifecycle
 
     func start() async {
-        let catalog = (try? await skinCatalog.loadSkins()) ?? []
-        skins = catalog + library.importedSkins.map(libraryStore.skin(for:))
+        skins = Skin.builtIn + library.importedSkins.map(libraryStore.skin(for:))
         guard isToolchainAvailable else {
             transition(to: .failed(WalletError.toolchainMissing.localizedDescription))
             return
@@ -298,37 +289,6 @@ final class WalletBloomStore: ObservableObject {
 
     // MARK: - Skins
 
-    /// 皮肤库中出现过的分类，按皮肤顺序去重。
-    var skinCategories: [String] {
-        var seen = Set<String>()
-        return skins.map(\.category).filter { seen.insert($0).inserted }
-    }
-
-    var visibleSkins: [Skin] {
-        let query = skinSearchText.trimmingCharacters(in: .whitespaces)
-        return skins.filter { skin in
-            switch skinFilter {
-            case .all: break
-            case .favorites: guard isFavorite(skin) else { return false }
-            case .category(let name): guard skin.category == name else { return false }
-            }
-            guard !query.isEmpty else { return true }
-            return [skin.name, skin.subtitle, skin.category].contains { $0.localizedCaseInsensitiveContains(query) }
-        }
-    }
-
-    func isFavorite(_ skin: Skin) -> Bool { library.favoriteSkinIDs.contains(skin.id) }
-
-    func toggleFavorite(_ skin: Skin) {
-        objectWillChange.send()
-        if let index = library.favoriteSkinIDs.firstIndex(of: skin.id) {
-            library.favoriteSkinIDs.remove(at: index)
-        } else {
-            library.favoriteSkinIDs.append(skin.id)
-        }
-        saveLibrary()
-    }
-
     func isImported(_ skin: Skin) -> Bool {
         library.importedSkins.contains { $0.id == skin.id }
     }
@@ -365,7 +325,6 @@ final class WalletBloomStore: ObservableObject {
         libraryStore.removeImage(named: library.importedSkins[index].fileName)
         library.importedSkins.remove(at: index)
         library.appliedSkinIDs = library.appliedSkinIDs.filter { $0.value != skin.id }
-        library.favoriteSkinIDs.removeAll { $0 == skin.id }
         saveLibrary()
         skins.removeAll { $0.id == skin.id }
         skinSelections = skinSelections.filter { $0.value != skin.id }

@@ -14,11 +14,14 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("WalletBloom")
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button { store.infoSheet = .privacy } label: {
-                    Label("隐私与安全", systemImage: "hand.raised")
+            ToolbarItem(placement: .navigation) {
+                HStack(spacing: 8) {
+                    AppGlyph(size: 22)
+                    Text("WalletBloom").font(.headline)
                 }
-                .help("隐私与安全：WalletBloom 不会上传或读取你的支付信息")
+                .accessibilityElement(children: .combine)
+            }
+            ToolbarItem(placement: .primaryAction) {
                 ConnectionBadge(store: store)
             }
         }
@@ -91,14 +94,16 @@ private struct ConnectionBadge: View {
     }
 
     private var badge: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 7) {
             Circle()
                 .fill(device == nil ? Color.secondary.opacity(0.6) : Color.green)
-                .frame(width: 7, height: 7)
+                .frame(width: 6, height: 6)
             Text(device?.name ?? "未连接设备")
                 .foregroundStyle(device == nil ? .secondary : .primary)
         }
-        .font(.callout)
-        .padding(.horizontal, 8)
+        .font(.callout.weight(.medium))
+        .padding(.horizontal, 12)
+        .frame(height: 28)
+        .background(Color.primary.opacity(0.05), in: Capsule())
     }
 }

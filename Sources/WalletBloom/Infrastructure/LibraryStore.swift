@@ -13,8 +13,6 @@ struct LibraryState: Codable {
     var importedSkins: [ImportedSkin] = []
     /// 用户给卡片起的名称（key 为 card hash）。
     var cardNames: [String: String] = [:]
-    /// 用户收藏的皮肤 id。
-    var favoriteSkinIDs: [UUID] = []
 
     struct ImportedSkin: Codable {
         let id: UUID
@@ -32,7 +30,6 @@ struct LibraryState: Codable {
         appliedSkinIDs = try container.decodeIfPresent([String: UUID].self, forKey: .appliedSkinIDs) ?? [:]
         importedSkins = try container.decodeIfPresent([ImportedSkin].self, forKey: .importedSkins) ?? []
         cardNames = try container.decodeIfPresent([String: String].self, forKey: .cardNames) ?? [:]
-        favoriteSkinIDs = try container.decodeIfPresent([UUID].self, forKey: .favoriteSkinIDs) ?? []
     }
 }
 
@@ -71,6 +68,6 @@ final class LibraryStore {
     }
 
     func skin(for record: LibraryState.ImportedSkin) -> Skin {
-        Skin(id: record.id, name: record.name, subtitle: "自定义图片", category: Skin.importedCategory, artwork: .localImage(skinsDirectory.appendingPathComponent(record.fileName)))
+        Skin(id: record.id, name: record.name, subtitle: "我的图片", artwork: .localImage(skinsDirectory.appendingPathComponent(record.fileName)))
     }
 }

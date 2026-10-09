@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct Device: Identifiable, Hashable {
     let id: UUID
@@ -51,24 +52,19 @@ struct Skin: Identifiable, Hashable {
     let id: UUID
     var name: String
     var subtitle: String
-    /// 皮肤库中的分类名称。
-    var category: String = Skin.builtInCategory
     var artwork: Artwork
 
-    static let builtInCategory = "渐变"
-    static let importedCategory = "我的图片"
-
     enum Artwork: Hashable {
-        /// 内置渐变占位皮肤，刷入前渲染成 PNG。
+        /// 内置渐变示例，刷入前渲染成 PNG。
         case gradient([String])
-        /// 用户导入的本地图片。
+        /// 图片：App 内置的示例图片或用户导入后裁剪好的图片。
         case localImage(URL)
-        /// 服务器下发的皮肤图片，刷入前下载到临时目录。
-        case remoteImage(URL)
     }
 
-    /// 内置渐变皮肤；服务器皮肤见 RemoteSkinCatalog。
-    static let placeholders = [
+    /// 内置示例：先是 App 包 BuiltInSkins 目录中的图片（打包时从 Resources/BuiltInSkins 复制），再是渐变。
+    static var builtIn: [Skin] { bundledSamples() + gradients }
+
+    static let gradients = [
         Skin(id: UUID(uuidString: "8A7D5C30-19E4-4EC8-9C5E-000000000101")!, name: "Sakura", subtitle: "柔和樱花", artwork: .gradient(["F6B7C8", "D9779B"])),
         Skin(id: UUID(uuidString: "8A7D5C30-19E4-4EC8-9C5E-000000000102")!, name: "Tokyo Night", subtitle: "城市霓虹", artwork: .gradient(["171B35", "5B4AA8"])),
         Skin(id: UUID(uuidString: "8A7D5C30-19E4-4EC8-9C5E-000000000103")!, name: "Minimal", subtitle: "纯净留白", artwork: .gradient(["F1EEE8", "BEB7AC"])),
@@ -78,6 +74,19 @@ struct Skin: Identifiable, Hashable {
         Skin(id: UUID(uuidString: "8A7D5C30-19E4-4EC8-9C5E-000000000107")!, name: "Grape", subtitle: "葡萄紫韵", artwork: .gradient(["8E2DE2", "4A00E0"])),
         Skin(id: UUID(uuidString: "8A7D5C30-19E4-4EC8-9C5E-000000000108")!, name: "Forest", subtitle: "森林绿意", artwork: .gradient(["134E5E", "71B280"]))
     ]
+
+    static func bundledSamples(in directory: URL? = Bundle.main.resourceURL?.appendingPathComponent("BuiltInSkins")) -> [Skin] {
+        guard let directory,
+              let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return [] }
+        let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "heic"]
+        return files
+            .filter { imageExtensions.contains($0.pathExtension.lowercased()) }
+            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+            .map { url in
+                // 文件名决定 id：改名会被当成新皮肤，“已应用”标记随之失效。
+                Skin(id: UUID(stableNameFrom: "BuiltInSkins/" + url.lastPathComponent), name: url.deletingPathExtension().lastPathComponent, subtitle: "内置示例", artwork: .localImage(url))
+            }
+    }
 }
 
 struct FlashJob: Identifiable {
@@ -106,6 +115,12 @@ struct FlashProgress: Sendable {
 }
 
 extension UUID {
+    /// 基于 SHA-256 的稳定 UUID，不同字符串几乎不可能得到相同结果。
+    init(stableNameFrom value: String) {
+        let digest = Array(SHA256.hash(data: Data(value.utf8)))
+        self.init(uuid: (digest[0], digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7], digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14], digest[15]))
+    }
+
     /// 把任意字符串折叠成稳定的 UUID，用于让同一设备/卡片在多次读取之间保持相同 id。
     init(deterministicFrom value: String) {
         var bytes = [UInt8](repeating: 0, count: 16)

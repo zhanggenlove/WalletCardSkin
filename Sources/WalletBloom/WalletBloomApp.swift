@@ -10,11 +10,12 @@ struct WalletBloomApp: App {
         // 单窗口应用：所有状态都在同一个 store 中，不支持多开窗口。
         Window("WalletBloom", id: "main") {
             ContentView(store: store)
-                .frame(minWidth: 880, minHeight: 600)
+                .frame(minWidth: 980, minHeight: 720)
                 .onAppear { appDelegate.coordinator = store.coordinator }
         }
-        .defaultSize(width: 1000, height: 680)
-        .windowToolbarStyle(.unified(showsTitle: true))
+        .defaultSize(width: 1180, height: 820)
+        // 标题和图标由工具栏自定义项显示（见 ContentView）。
+        .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
             WalletBloomCommands(store: store, coordinator: store.coordinator, updater: updater)
         }

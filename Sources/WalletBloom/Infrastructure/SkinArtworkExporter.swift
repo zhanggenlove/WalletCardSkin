@@ -17,15 +17,6 @@ enum SkinArtworkExporter {
             return ExportedFile(url: try BuiltInSkinRenderer.render(colors: colors), isTemporary: true)
         case .localImage(let url):
             return ExportedFile(url: url, isTemporary: false)
-        case .remoteImage(let url):
-            let (downloadedURL, response) = try await URLSession.shared.download(from: url)
-            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-                throw WalletError.unsupported("皮肤下载失败（HTTP \(http.statusCode)）")
-            }
-            let fileExtension = url.pathExtension.isEmpty ? "png" : url.pathExtension
-            let destination = temporaryURL(extension: fileExtension)
-            try FileManager.default.moveItem(at: downloadedURL, to: destination)
-            return ExportedFile(url: destination, isTemporary: true)
         }
     }
 

@@ -33,7 +33,7 @@ The store drives a single phase state machine: `launching → onboarding → sca
 - **Scanning** — watches device logs for up to 30 seconds, showing live whether the log stream is connected and how many cards were found; it can be finished early (keeping results) or cancelled. Bare hashes are only trusted from Wallet-related processes, which filters out the push/sync tokens that look identical. New cards are saved to WalletBloom's own library; AirCard's `~/.aircard_cards.json` is read but never written.
 - **No cards / failed** — native `ContentUnavailableView` screens with rescan, retry and contact-support actions (the support address is a placeholder in `SupportContact`).
 - **Import & crop** — imported images open a crop sheet (drag to position, slider or pinch to zoom, low-resolution warning); the result is rendered to 1536×969 and stored in the local library.
-- **Workspace** — stacked card carousel (click, swipe, ← / → keys; right-click to remove a misdetected card), a skin grid that previews on the card immediately and remembers the choice per card, and a bottom bar for importing an image, rescanning and applying (⌘↩).
+- **Workspace** — layout follows `stitch_macos_app_redesign/`: a card stage with floating chevrons and page dots (click, swipe, ← / →; right-click to rename or remove a card), a 5-column skin grid ending in a "create your own" tile, a privacy strip, a floating pill action bar (import ⌘O, rescan, apply ⌘↩) and a footer with the disclaimer and version.
 - **No restore** — WalletBloom does not back up the original card art. The disclaimer and a confirmation before applying (with "Don't show again") explain that restoring requires removing and re-adding the card in Wallet; the wording lives in `RestoreNotice`.
 - **Sync** — applying a skin opens a modal sheet with the backend's real step progress; the window is locked until it finishes, and quitting asks for confirmation.
 - **Compatibility** — the connected iPhone's iOS version is checked against AirCard's range (iOS 18+, tested on 27): older versions block scanning and applying, newer ones show an "untested" warning.
@@ -41,7 +41,7 @@ The store drives a single phase state machine: `launching → onboarding → sca
 - **Menus** — WalletBloom (About, Check for Updates…), File (Import Image ⌘O, Scan Cards ⌘R), Cards (previous/next, rename, apply ⌘↩, remove), Help (privacy, disclaimer, support). Updates use Sparkle and stay disabled until `SUFeedURL` / `SUPublicEDKey` are set — see `docs/roadmap.md`.
 - **Language** — Simplified Chinese only for now, including system menu items; internationalization is planned in `docs/roadmap.md`.
 - **Local library** — `~/Library/Application Support/WalletBloom/` keeps scanned and removed cards, the skin applied to each card, and copies of imported images.
-- **Skin library** — built-in gradients plus an optional server catalog (`WBSkinCatalogURL`, format in `docs/skin-catalog.md`, cached for offline use). Category picker, toolbar search and favorites (right-click). Remote images are downloaded only when applied.
+- **Skin library** — built-in samples (images dropped into `Resources/BuiltInSkins/`, then eight gradients) followed by the user's own images; the last tile invites importing. No search, categories or server catalog — the focus is on users' own images.
 
 ## Airlift integration
 
