@@ -19,7 +19,7 @@ struct ContentView: View {
                     Label("隐私与安全", systemImage: "hand.raised")
                 }
                 .help("隐私与安全：WalletBloom 不会上传或读取你的支付信息")
-                ConnectionBadge(device: store.device)
+                ConnectionBadge(store: store)
             }
         }
         .sheet(item: presentedSheet) { sheet in
@@ -66,9 +66,31 @@ struct ContentView: View {
 }
 
 private struct ConnectionBadge: View {
-    let device: Device?
+    @ObservedObject var store: WalletBloomStore
+
+    private var device: Device? { store.device }
 
     var body: some View {
+        if store.devices.count > 1 {
+            Menu {
+                Picker("选择 iPhone", selection: Binding(get: { store.device }, set: { if let selected = $0 { store.selectDevice(selected) } })) {
+                    ForEach(store.devices) { device in
+                        Text("\(device.name)（iOS \(device.systemVersion)）").tag(Optional(device))
+                    }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                badge
+            }
+            .disabled(!store.canSwitchDevice)
+            .help("已连接 \(store.devices.count) 台 iPhone，点按切换")
+        } else {
+            badge
+                .help(device.map { "\($0.model) · iOS \($0.systemVersion)" + (SystemCompatibility.check($0.systemVersion).message.map { "\n\($0)" } ?? "") } ?? "请使用数据线连接 iPhone")
+        }
+    }
+
+    private var badge: some View {
         HStack(spacing: 6) {
             Circle()
                 .fill(device == nil ? Color.secondary.opacity(0.6) : Color.green)
@@ -78,6 +100,5 @@ private struct ConnectionBadge: View {
         }
         .font(.callout)
         .padding(.horizontal, 8)
-        .help(device.map { "\($0.model) · iOS \($0.systemVersion)" + (SystemCompatibility.check($0.systemVersion).message.map { "\n\($0)" } ?? "") } ?? "请使用数据线连接 iPhone")
     }
 }

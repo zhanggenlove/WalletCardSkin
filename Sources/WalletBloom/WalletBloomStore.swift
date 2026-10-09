@@ -14,6 +14,9 @@ final class WalletBloomStore: ObservableObject {
 
     @Published private(set) var phase: Phase = .launching
     @Published private(set) var device: Device?
+    /// 当前连接的所有设备；多于一台时可在工具栏切换。
+    @Published private(set) var devices: [Device] = []
+    private var preferredUDID: String?
     @Published private(set) var cards: [WalletCard] = []
     @Published private(set) var skins: [Skin] = []
     @Published private(set) var selectedCardID: WalletCard.ID?
@@ -106,6 +109,14 @@ final class WalletBloomStore: ObservableObject {
     }
 
     var libraryDirectory: URL { libraryStore.directory }
+
+    var canSwitchDevice: Bool { devices.count > 1 && phase != .scanning && !coordinator.isRunning }
+
+    func selectDevice(_ newDevice: Device) {
+        guard canSwitchDevice, devices.contains(newDevice) else { return }
+        preferredUDID = newDevice.udid
+        device = newDevice
+    }
 
     var compatibility: SystemCompatibility { device.map { SystemCompatibility.check($0.systemVersion) } ?? .unknown }
 
@@ -389,8 +400,11 @@ final class WalletBloomStore: ObservableObject {
     // MARK: - Private
 
     private func refreshDevice() async {
-        let discovered = (try? await transport.discoverDevices())?.first
-        if discovered != device { device = discovered }
+        let discovered = (try? await transport.discoverDevices()) ?? []
+        if discovered != devices { devices = discovered }
+        // 多台设备时沿用用户上次选择的那台；它被拔掉后回落到第一台。
+        let current = discovered.first { $0.udid != nil && $0.udid == preferredUDID } ?? discovered.first
+        if current != device { device = current }
     }
 
     /// 本次会话已有的卡片 + AirCard 保存的卡片 + WalletBloom 扫描保存的卡片，去掉用户移除的。
