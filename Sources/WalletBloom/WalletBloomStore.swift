@@ -32,6 +32,13 @@ final class WalletBloomStore: ObservableObject {
     @Published var isImporterPresented = false
     @Published var renamingCard: WalletCard?
     @Published var isConfirmingApply = false
+    @Published var pendingImport: PendingImport?
+
+    struct PendingImport: Identifiable {
+        let id = UUID()
+        let name: String
+        let image: CGImage
+    }
     /// 与 WorkspaceView 中的 @AppStorage 共用同一个 key。
     static let suppressRestoreWarningKey = "suppressRestoreWarning"
 
@@ -221,11 +228,23 @@ final class WalletBloomStore: ObservableObject {
         library.importedSkins.contains { $0.id == skin.id }
     }
 
-    func importSkin(from url: URL) {
+    /// 第一步：读取用户选择的图片，打开裁剪弹窗。
+    func beginImport(from url: URL) {
+        guard let image = CardArtworkCropper.loadImage(at: url) else {
+            notice = "无法读取这张图片，请换一张 PNG、JPEG 或 HEIC 图片"
+            return
+        }
+        pendingImport = PendingImport(name: url.deletingPathExtension().lastPathComponent, image: image)
+    }
+
+    /// 第二步：按用户选定的区域裁剪，保存为新的皮肤。
+    func finishImport(_ pending: PendingImport, cropRect: CGRect) {
+        pendingImport = nil
         let id = UUID()
         do {
-            let fileName = try libraryStore.importImage(from: url, id: id)
-            let record = LibraryState.ImportedSkin(id: id, name: url.deletingPathExtension().lastPathComponent, fileName: fileName)
+            let png = try CardArtworkCropper.renderPNG(pending.image, cropRect: cropRect)
+            let fileName = try libraryStore.saveImage(png, id: id)
+            let record = LibraryState.ImportedSkin(id: id, name: pending.name, fileName: fileName)
             library.importedSkins.append(record)
             saveLibrary()
             let skin = libraryStore.skin(for: record)

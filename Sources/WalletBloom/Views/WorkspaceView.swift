@@ -18,7 +18,7 @@ struct WorkspaceView: View {
             BottomBar(store: store)
         }
         .fileImporter(isPresented: $store.isImporterPresented, allowedContentTypes: [.png, .jpeg, .heic, .tiff]) { result in
-            if case .success(let url) = result { store.importSkin(from: url) }
+            if case .success(let url) = result { store.beginImport(from: url) }
         }
         .confirmationDialog(RestoreNotice.title, isPresented: $store.isConfirmingApply) {
             Button("应用到 iPhone") {
@@ -319,6 +319,14 @@ private struct SkinLibrary: View {
             }
         }
         .frame(maxHeight: .infinity)
+        // 裁剪弹窗挂在皮肤库上，避免和挂在主界面上的同步弹窗共用同一个视图。
+        .sheet(item: $store.pendingImport) { pending in
+            ImageCropView(pending: pending) {
+                store.pendingImport = nil
+            } onConfirm: { cropRect in
+                store.finishImport(pending, cropRect: cropRect)
+            }
+        }
     }
 }
 

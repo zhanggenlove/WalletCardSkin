@@ -138,11 +138,8 @@ final class LibraryStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = LibraryStore(directory: directory)
 
-        let source = FileManager.default.temporaryDirectory.appendingPathComponent("skin-\(UUID().uuidString).png")
-        try Data([1, 2, 3]).write(to: source)
         let id = UUID()
-        let fileName = try store.importImage(from: source, id: id)
-        try FileManager.default.removeItem(at: source)
+        let fileName = try store.saveImage(Data([1, 2, 3]), id: id)
 
         var state = LibraryState()
         state.scannedCardHashes = ["abc"]
@@ -154,7 +151,7 @@ final class LibraryStoreTests: XCTestCase {
         XCTAssertEqual(loaded.scannedCardHashes, ["abc"])
         XCTAssertEqual(loaded.appliedSkinIDs["abc"], id)
         guard case .localImage(let url) = store.skin(for: loaded.importedSkins[0]).artwork else { return XCTFail("expected local image") }
-        XCTAssertEqual(try Data(contentsOf: url), Data([1, 2, 3]), "导入的图片应在原文件删除后依然可用")
+        XCTAssertEqual(try Data(contentsOf: url), Data([1, 2, 3]), "保存的卡面图片应能从 Skins 目录读回")
     }
 }
 
@@ -182,6 +179,42 @@ final class BuiltInSkinRendererTests: XCTestCase {
         let url = try BuiltInSkinRenderer.render(colors: ["F6B7C8", "D9779B"])
         defer { try? FileManager.default.removeItem(at: url) }
         let bitmap = try XCTUnwrap(NSBitmapImageRep(data: Data(contentsOf: url)))
+        XCTAssertEqual(bitmap.pixelsWide, 1536)
+        XCTAssertEqual(bitmap.pixelsHigh, 969)
+    }
+}
+
+final class CardArtworkCropperTests: XCTestCase {
+    private let viewport = CGSize(width: 480, height: 480 / WalletCard.artworkAspectRatio)
+
+    func testDefaultCropIsCenteredAndKeepsCardRatio() {
+        // 4000×2000 的宽图：默认铺满取景框，左右各裁掉一部分。
+        let rect = CardArtworkCropper.cropRect(imageSize: CGSize(width: 4000, height: 2000), viewport: viewport, zoom: 1, offset: .zero)
+        XCTAssertEqual(rect.height, 2000, accuracy: 1)
+        XCTAssertEqual(rect.width / rect.height, WalletCard.artworkAspectRatio, accuracy: 0.01)
+        XCTAssertEqual(rect.midX, 2000, accuracy: 1)
+    }
+
+    func testOffsetCannotRevealEmptySpace() {
+        // 往右拖得再远，裁剪区域也不会超出图片左边界。
+        let rect = CardArtworkCropper.cropRect(imageSize: CGSize(width: 4000, height: 2000), viewport: viewport, zoom: 1, offset: CGSize(width: 10_000, height: 0))
+        XCTAssertEqual(rect.minX, 0, accuracy: 1)
+    }
+
+    func testZoomShrinksTheCropRegion() {
+        let size = CGSize(width: 3000, height: 3000)
+        let normal = CardArtworkCropper.cropRect(imageSize: size, viewport: viewport, zoom: 1, offset: .zero)
+        let zoomed = CardArtworkCropper.cropRect(imageSize: size, viewport: viewport, zoom: 2, offset: .zero)
+        XCTAssertEqual(zoomed.width, normal.width / 2, accuracy: 2)
+    }
+
+    func testRenderOutputsWalletPixelSize() throws {
+        let context = CGContext(data: nil, width: 800, height: 600, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 800, height: 600))
+        let image = context.makeImage()!
+        let rect = CardArtworkCropper.cropRect(imageSize: CGSize(width: 800, height: 600), viewport: viewport, zoom: 1, offset: .zero)
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: CardArtworkCropper.renderPNG(image, cropRect: rect)))
         XCTAssertEqual(bitmap.pixelsWide, 1536)
         XCTAssertEqual(bitmap.pixelsHigh, 969)
     }

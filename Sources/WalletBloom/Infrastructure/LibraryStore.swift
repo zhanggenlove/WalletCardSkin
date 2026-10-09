@@ -55,14 +55,11 @@ final class LibraryStore {
         try encoder.encode(state).write(to: stateURL, options: .atomic)
     }
 
-    /// 把导入的图片复制进 App 目录，原文件被移动或删除后依然可用。
-    func importImage(from source: URL, id: UUID) throws -> String {
+    /// 保存裁剪好的卡面图片到 App 目录，与原文件无关，原文件被移动或删除后依然可用。
+    func saveImage(_ pngData: Data, id: UUID) throws -> String {
         try FileManager.default.createDirectory(at: skinsDirectory, withIntermediateDirectories: true)
-        let fileExtension = source.pathExtension.isEmpty ? "png" : source.pathExtension.lowercased()
-        let fileName = "\(id.uuidString).\(fileExtension)"
-        let accessing = source.startAccessingSecurityScopedResource()
-        defer { if accessing { source.stopAccessingSecurityScopedResource() } }
-        try FileManager.default.copyItem(at: source, to: skinsDirectory.appendingPathComponent(fileName))
+        let fileName = "\(id.uuidString).png"
+        try pngData.write(to: skinsDirectory.appendingPathComponent(fileName), options: .atomic)
         return fileName
     }
 
